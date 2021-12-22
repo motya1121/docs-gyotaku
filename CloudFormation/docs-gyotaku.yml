@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Bucket for storing archived data of web pages.
+  DDBGTableName:
+    Type: String
+    Description: Dynamo DB table name
+
+Resources:
+  # Event Rule
+  EventRules:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: default
+      Name: docs-gyotaku-watcher
+      ScheduleExpression: "rate(1 hour)"
+      Targets:
+        - Arn: !GetAtt DocsWatcher.Arn
+          Id: docs-gyotaku-watcher
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref DocsWatcher
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventRules.Arn
+
+
+  # Docs Watcher
+  DocsWatcherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: docs-gyotaku-watcher-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDB
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:Updateitem'
+                Resource: !GetAtt DDBTable.Arn
+
+  DocsWatcher:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: checks if the dosument has been updated.
+      FunctionName: docs-gyotaku-watcher
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Timeout: 180
+      Role: !GetAtt DocsWatcherRole.Arn
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          exports.hundler = function(event, context) {}
+
+  DocsWatcherVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: v1
+      FunctionName: !Ref DocsWatcher
+
+  DocsWatcherAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref DocsWatcher
+      FunctionVersion: !GetAtt DocsWatcherVersion.Version
+      Name: prod
+
+  ## Dynamo DB
+  DDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DDBGTableName
+      AttributeDefinitions:
+        - AttributeName: "WebSiteId"
+          AttributeType: "S"
+        - AttributeName: "timestamp"
+          AttributeType: "N"
+      KeySchema:
+        - AttributeName: "WebSiteId"
+          KeyType: HASH
+        - AttributeName: "timestamp"
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 3
+        WriteCapacityUnits: 3
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  DynamoDBTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DDBTable.StreamArn
+      BatchSize: 1
+      Enabled: True
+      FunctionName: !GetAtt DocsGyotakuCreator.Arn
+      StartingPosition: LATEST
+
+
+  ## Create gyotaku
+  DocsGyotakuCreatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: docs-gyotaku-creator-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole
+      Policies:
+        - PolicyName: "S3"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+
+  DocsGyotakuCreator:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: create gyotaku
+      FunctionName: docs-gyotaku-creator
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt DocsGyotakuCreatorRole.Arn
+      Runtime: python3.9
+      Timeout: 180
+      Code:
+        ZipFile: |
+          exports.hundler = function(event, context) {}
+
+  DocsGyotakuCreatorVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: v1
+      FunctionName: !Ref DocsGyotakuCreator
+
+  DocsGyotakuCreatorAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref DocsGyotakuCreator
+      FunctionVersion: !GetAtt DocsGyotakuCreatorVersion.Version
+      Name: prod
