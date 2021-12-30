@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LAMBDA_FUNC_NAME="docs-gyotaku-creator"
+LAMBDA_FUNC_NAME="docs-gyotaku-watcher"
 profile="main"
 
 # DocsGyotakuCreator
@@ -13,6 +13,8 @@ rm -r certifi
 rm -r charset_normalizer
 rm -r idna
 rm -r requests
+rm -r bs4
+rm -r soupsieve
 rm -r urllib3
 rm -r __pycache__
 cd ../
