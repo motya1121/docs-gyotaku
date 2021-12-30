@@ -8,10 +8,10 @@ import time
 import logging
 
 logger = logging.getLogger()
-DDBTablename = os.environ['DDBTablename']
+DDB_TABLE_NAME = os.environ['DDBTablename']
 db_session = boto3.Session(region_name='ap-northeast-1')
 dynamodb = db_session.resource('dynamodb')
-table = dynamodb.Table(DDBTablename)
+table = dynamodb.Table(DDB_TABLE_NAME)
 
 
 def update_dynammodb(site_data):
@@ -53,13 +53,22 @@ def verify_msdocs_site(site_data):
     pass
 
 
+def get_watch_site_list():
+
+    scan_kwargs = {
+        'FilterExpression': Key('is_watch').eq(True),
+    }
+    site_datas = table.scan(**scan_kwargs)
+    print(site_datas['Items'])
+
+    return site_datas['Items']
+
+
 def lambda_handler(event, context):
 
-    site_datas = table.scan()
-    for site_data in site_datas['Items']:
+    for site_data in get_watch_site_list():
         logger.info(f'site: {site_data["WebSiteId"]}')
 
-        print(site_data)
         if site_data['type'] == "web":
             _ = verify_web_site(site_data=site_data)
         elif site_data['type'] == "msdocs":
