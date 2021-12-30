@@ -1,11 +1,40 @@
 import argparse
 import json
+import random
+import time
 import boto3
 from boto3.dynamodb.conditions import Key
 
 SSO_PRODILE = "main"
 
 db_session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
+
+
+def generate_site_id():
+    while True:
+        number = random.randint(1, 9999999999)
+        WebSiteId = f'site-{number:0=10}'
+
+        dynamodb = db_session.resource('dynamodb')
+        table = dynamodb.Table('docs-gyotaku')
+        responses = table.query(KeyConditionExpression=Key('WebSiteId').eq(WebSiteId) & Key('SortId').eq(WebSiteId))
+
+        if responses['Count'] == 0:
+            break
+    return WebSiteId
+
+
+def verity_already_watched(url):
+    dynamodb = db_session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    scan_kwargs = {
+        'FilterExpression': Key('url').eq(url),
+    }
+    responses = table.scan(**scan_kwargs)
+    if responses['Count'] == 0:
+        return False
+    else:
+        return True
 
 
 def db_list(args):
@@ -17,14 +46,28 @@ def db_list(args):
 
 
 def db_add(args):
-    insert_data = ""
+    insert_datas = None
     with open(args.file, 'r') as f:
-        insert_data = json.load(f)
-    print(insert_data)
+        insert_datas = json.load(f)
 
-    dynamodb = db_session.resource('dynamodb')
-    table = dynamodb.Table('docs-gyotaku')
-    table.put_item(Item=insert_data)
+    for insert_data in insert_datas:
+        # verify already wached
+        if verity_already_watched(insert_data['url']) is True:
+            print(f'[INFO] "{insert_data["url"]}" is already wached')
+            continue
+
+        site_id = generate_site_id()
+        insert_data['WebSiteId'] = site_id
+        insert_data['timestamp'] = int(time.time())
+        insert_data['SortId'] = site_id
+
+        dynamodb = db_session.resource('dynamodb')
+        table = dynamodb.Table('docs-gyotaku')
+        table.put_item(Item=insert_data)
+
+
+def test(args):
+    print('test')
 
 
 if __name__ == "__main__":
@@ -46,6 +89,10 @@ if __name__ == "__main__":
         help='all files',
     )
     parser_db_add.set_defaults(handler=db_add)
+
+    # test
+    parser_db = subparsers.add_parser('test', help='see `test -h`')
+    parser_db.set_defaults(handler=test)
 
     args = parser.parse_args()
     if hasattr(args, 'handler'):

@@ -17,21 +17,19 @@ table = dynamodb.Table(DDBTablename)
 def update_dynammodb(site_data):
     option = {
         'Key': {
-            'WebSiteId': site_data['WebSiteId']
+            'WebSiteId': site_data['WebSiteId'],
+            'SortId': site_data['SortId']
         },
-        'ConditionExpression': '#timestamp < :timestamp',
-        'UpdateExpression': 'set #timestamp = :timestamp, #hash = :hash',
+        'UpdateExpression': 'set #timestamp = :timestamp',
         'ExpressionAttributeNames': {
-            '#timestamp': 'timestamp',
-            '#hash': 'hash'
+            '#timestamp': 'timestamp'
         },
         'ExpressionAttributeValues': {
-            ':timestamp': site_data['timestamp'],
-            ':hash': site_data['hash']
+            ':timestamp': site_data['timestamp']
         }
     }
     table.update_item(**option)
-    logger.info(f'site: {site_data["WebSiteId"]} updated(hash: {site_data["hash"]})')
+    logger.info(f'site: {site_data["WebSiteId"]} updated(SortId: {site_data["SortId"]})')
 
 
 def verify_web_site(site_data):
@@ -42,11 +40,11 @@ def verify_web_site(site_data):
     # soup = BeautifulSoup(esult.text, "html.parser")
     # print(soup.h1)
 
-    if hash_result == site_data['hash']:
+    if hash_result == site_data['SortId']:
         return False
     else:
         site_data['timestamp'] = int(time.time())
-        site_data['hash'] = hash_result
+        site_data['SortId'] = hash_result
         update_dynammodb(site_data)
         return site_data
 

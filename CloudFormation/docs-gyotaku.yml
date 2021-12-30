@@ -94,9 +94,26 @@ Resources:
       AttributeDefinitions:
         - AttributeName: "WebSiteId"
           AttributeType: "S"
+        - AttributeName: "SortId"
+          AttributeType: "S"
+        - AttributeName: timestamp
+          AttributeType: "N"
       KeySchema:
         - AttributeName: "WebSiteId"
           KeyType: HASH
+        - AttributeName: "SortId"
+          KeyType: RANGE
+      LocalSecondaryIndexes:
+        - IndexName: SiteData
+          KeySchema:
+            - AttributeName: WebSiteId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - SortId
       ProvisionedThroughput:
         ReadCapacityUnits: 3
         WriteCapacityUnits: 3
@@ -137,7 +154,16 @@ Resources:
             Statement:
               - Effect: "Allow"
                 Action: "s3:PutObject"
-                Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+                Resource: 
+                  - !Sub 'arn:aws:s3:::${S3BucketName}'
+                  - !Sub 'arn:aws:s3:::${S3BucketName}/*'
+        - PolicyName: "DynamoQuery"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "dynamodb:Query"
+                Resource: '*'
 
   DocsGyotakuCreator:
     Type: AWS::Lambda::Function
@@ -152,6 +178,10 @@ Resources:
       Code:
         ZipFile: |
           exports.hundler = function(event, context) {}
+      Environment:
+        Variables:
+          DDBTablename: !Ref DDBTable
+          S3_BUCKET_NAME: !Ref S3BucketName
 
   DocsGyotakuCreatorVersion:
     Type: AWS::Lambda::Version
