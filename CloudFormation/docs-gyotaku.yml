@@ -69,6 +69,9 @@ Resources:
       Code:
         ZipFile: |
           exports.hundler = function(event, context) {}
+      Environment:
+        Variables:
+          DDBTablename: !Ref DDBTable
 
   DocsWatcherVersion:
     Type: AWS::Lambda::Version
@@ -91,13 +94,9 @@ Resources:
       AttributeDefinitions:
         - AttributeName: "WebSiteId"
           AttributeType: "S"
-        - AttributeName: "timestamp"
-          AttributeType: "N"
       KeySchema:
         - AttributeName: "WebSiteId"
           KeyType: HASH
-        - AttributeName: "timestamp"
-          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 3
         WriteCapacityUnits: 3
