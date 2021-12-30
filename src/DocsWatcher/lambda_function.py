@@ -54,12 +54,10 @@ def verify_msdocs_site(site_data):
 
 
 def get_watch_site_list():
-
     scan_kwargs = {
         'FilterExpression': Key('is_watch').eq(True),
     }
     site_datas = table.scan(**scan_kwargs)
-    print(site_datas['Items'])
 
     return site_datas['Items']
 

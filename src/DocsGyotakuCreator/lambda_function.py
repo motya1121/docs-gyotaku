@@ -4,6 +4,9 @@ import os
 import json
 import boto3
 from boto3.dynamodb.conditions import Key
+import logging
+
+logger = logging.getLogger()
 
 S3_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
 DDB_TABLE_NAME = os.environ['DDBTablename']
@@ -22,20 +25,16 @@ def lambda_handler(event, context):
     for Record in event['Records']:
         WebSiteId = Record['dynamodb']['NewImage']['WebSiteId']['S']
         timestamp = Record['dynamodb']['NewImage']['timestamp']['N']
-        # get web code
+        site_hash = Record['dynamodb']['NewImage']['SortId']['S']
+
+        # get web site data
         url = get_site_url(WebSiteId)
         result = requests.get(url)
-        print(result.text)
 
-        # create web data
-        web_data = {
-            "WebSiteId": WebSiteId,
-            "hash": Record['dynamodb']['NewImage']['SortId']['S'],
-            "timestamp": timestamp,
-            "url": url
-        }
+        # create web site infomation
+        web_data = {"WebSiteId": WebSiteId, "hash": site_hash, "timestamp": timestamp, "url": url}
 
-        # create gzip file
+        # export site data to file
         temp_dir = tempfile.TemporaryDirectory()
         temp_web_file_path = os.path.join(temp_dir.name, f"{timestamp}.html")
         temp_data_file_path = os.path.join(temp_dir.name, 'data.json')
@@ -53,4 +52,4 @@ def lambda_handler(event, context):
 
         temp_dir.cleanup()
 
-        # result.text
+        logger.info(f'site: {WebSiteId},  new hash: {site_hash}, timestamp: {timestamp}')
