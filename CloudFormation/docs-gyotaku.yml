@@ -9,6 +9,8 @@ Parameters:
   DocsUpdateNotifyQueueName:
     Type: String
     Description: this queue contain information for updated docs.
+  CloudWatchAlermSNSArn:
+    Type: String
 
 Resources:
   # Event Rule
@@ -269,3 +271,58 @@ Resources:
         Variables:
           DocsUpdateNotifyQueueURL: !Ref DocsUpdateNotifyQueue
           DDBTablename: !Ref DDBGTableName
+
+  # Cloud Watch
+  DocsWatcherAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      Namespace: AWS/Lambda
+      AlarmName: lambda-docs-gyotaku-watcher-failed
+      AlarmActions:
+        - !Ref CloudWatchAlermSNSArn
+      MetricName: Errors
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 60
+      Statistic: Maximum
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: docs-gyotaku-watcher
+
+  DocsGyotakuCreatorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      Namespace: AWS/Lambda
+      AlarmName: lambda-docs-gyotaku-creator-failed
+      AlarmActions:
+        - !Ref CloudWatchAlermSNSArn
+      MetricName: Errors
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 60
+      Statistic: Maximum
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: docs-gyotaku-creator
+
+  DocsUpdateInfoEnqueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      Namespace: AWS/Lambda
+      AlarmName: lambda-docs-watcher-update-info-failed
+      AlarmActions:
+        - !Ref CloudWatchAlermSNSArn
+      MetricName: Errors
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 60
+      Statistic: Maximum
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: docs-watcher-update-info
