@@ -3,11 +3,14 @@ import json
 import random
 import time
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
+from datetime import datetime as dt
 
 SSO_PRODILE = "main"
+S3_BUCKET_NAME = "docs-gyotaku-532648218247"
+DDB_TABLE_NAME = "docs-gyotaku"
 
-db_session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
+session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
 
 
 def generate_site_id():
@@ -15,7 +18,7 @@ def generate_site_id():
         number = random.randint(1, 9999999999)
         WebSiteId = f'site-{number:0=10}'
 
-        dynamodb = db_session.resource('dynamodb')
+        dynamodb = session.resource('dynamodb')
         table = dynamodb.Table('docs-gyotaku')
         responses = table.query(KeyConditionExpression=Key('WebSiteId').eq(WebSiteId) & Key('SortId').eq(WebSiteId))
 
@@ -25,7 +28,7 @@ def generate_site_id():
 
 
 def verity_already_watched(url):
-    dynamodb = db_session.resource('dynamodb')
+    dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
     scan_kwargs = {
         'FilterExpression': Key('url').eq(url),
@@ -38,7 +41,7 @@ def verity_already_watched(url):
 
 
 def db_list(args):
-    dynamodb = db_session.resource('dynamodb')
+    dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
     scan_kwargs = {
         'FilterExpression': Key('is_watch').eq(True),
@@ -70,9 +73,71 @@ def db_add(args):
         insert_data['timestamp'] = int(time.time())
         insert_data['SortId'] = site_id
 
-        dynamodb = db_session.resource('dynamodb')
+        dynamodb = session.resource('dynamodb')
         table = dynamodb.Table('docs-gyotaku')
         table.put_item(Item=insert_data)
+
+
+def gyotaku_list(args):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+
+    if args.siteId is not None:
+        query_kwargs = {
+            'IndexName': 'SiteData',
+            'KeyConditionExpression': Key('WebSiteId').eq(args.siteId),
+            'ScanIndexForward': False
+        }
+        responses = table.query(**query_kwargs)
+        if responses['Count'] == 0:
+            print(f'siteid:{args.siteId} is not found')
+            return 0
+        else:
+            print('SiteId          | hash                                                     | timestamp           |')
+            for item in responses['Items']:
+                print('{0[WebSiteId]} | {0[SortId]} | {1} |'.format(item, dt.fromtimestamp(item['timestamp'])))
+
+    else:
+        print('SiteId          |is_archive |type\t| latest hash                                              |url|')
+        # get site list
+        scan_kwargs = {
+            'FilterExpression': Attr('timestamp').not_exists(),
+        }
+        responses = table.scan(**scan_kwargs)
+
+        # get latest site data
+        for watch_data in responses['Items']:
+            siteId = watch_data['SortId']
+            query_kwargs = {
+                'IndexName': 'SiteData',
+                'KeyConditionExpression': Key('WebSiteId').eq(siteId),
+                'ScanIndexForward': False,
+                'Limit': 1
+            }
+            site_data = table.query(**query_kwargs)['Items'][0]
+
+            # print data
+            print('{0[WebSiteId]} |{0[is_archive]}       |{0[type]}\t| {1} |{0[url]}|'.format(
+                watch_data, site_data['SortId']))
+
+
+def gyotaku_get(args):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    siteId = args.siteId
+    siteHash = args.hash
+
+    query_kwargs = {'KeyConditionExpression': Key('WebSiteId').eq(siteId) & Key('SortId').eq(siteHash)}
+    responses = table.query(**query_kwargs)
+
+    if responses['Count'] == 0:
+        print(f'siteid:{siteId}, hash:{siteHash} is not found')
+        return
+
+    s3 = session.resource('s3')
+    bucket = s3.Bucket(S3_BUCKET_NAME)
+    bucket.download_file(f"ArchiveData/{siteId}/{responses['Items'][0]['timestamp']}.html",
+                         f"{responses['Items'][0]['timestamp']}.html")
 
 
 def test(args):
@@ -106,6 +171,34 @@ if __name__ == "__main__":
         help='all files',
     )
     parser_db_add.set_defaults(handler=db_add)
+
+    # *** gyotaku ***
+    parser_gyotaku = subparsers.add_parser('gyotaku', help='see `gyotaku -h`')
+    parser_gyotaku_subparser = parser_gyotaku.add_subparsers()
+
+    # gyotaku-list
+    parser_gyotaku_list = parser_gyotaku_subparser.add_parser('list', help='see `gyotaku list -h`')
+    parser_gyotaku_list.add_argument(
+        '-s',
+        '--siteId',
+        help='Web Site Id',
+    )
+    parser_gyotaku_list.set_defaults(handler=gyotaku_list)
+
+    # gyotaku-get
+    parser_gyotaku_get = parser_gyotaku_subparser.add_parser('get', help='see `gyotaku get -h`')
+    parser_gyotaku_get.add_argument(
+        '-s',
+        '--siteId',
+        required=True,
+        help='Web Site Id',
+    )
+    parser_gyotaku_get.add_argument(
+        '--hash',
+        required=True,
+        help='gyotaku hash',
+    )
+    parser_gyotaku_get.set_defaults(handler=gyotaku_get)
 
     # test
     parser_db = subparsers.add_parser('test', help='see `test -h`')
