@@ -40,9 +40,18 @@ def verity_already_watched(url):
 def db_list(args):
     dynamodb = db_session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
-    responses = table.scan()
-    for result in responses['Items']:
-        print(result)
+    scan_kwargs = {
+        'FilterExpression': Key('is_watch').eq(True),
+    }
+    responses = table.scan(**scan_kwargs)
+
+    if args.verbose is True:
+        for result in responses['Items']:
+            print(result)
+    else:
+        print('SiteId          |is_archive |type\t|url|')
+        for result in responses['Items']:
+            print('{0[WebSiteId]} |{0[is_archive]}       |{0[type]}\t|{0[url]}|'.format(result))
 
 
 def db_add(args):
@@ -74,12 +83,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='DocsWatcher')
     subparsers = parser.add_subparsers()
 
-    # db
+    # *** db ***
     parser_db = subparsers.add_parser('db', help='see `db -h`')
     parser_db_subparser = parser_db.add_subparsers()
+
     # db-list
     parser_db_list = parser_db_subparser.add_parser('list', help='see `db list -h`')
+    parser_db_list.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        help='verbose watching site data',
+    )
     parser_db_list.set_defaults(handler=db_list)
+
     # db-add
     parser_db_add = parser_db_subparser.add_parser('add', help='see `db add -h`')
     parser_db_add.add_argument(
