@@ -24,6 +24,8 @@ aws cloudformation update-stack \
 --parameters \
 ParameterKey=S3BucketName,ParameterValue=docs-gyotaku-532648218247 \
 ParameterKey=DDBGTableName,ParameterValue=docs-gyotaku \
+ParameterKey=DocsUpdateNotifyQueueName,ParameterValue=docs-gyotaku-notify-queue \
+ParameterKey=CloudWatchAlermSNSArn,ParameterValue=arn:aws:sns:ap-northeast-1:532648218247:SendToSlackViaChatbot \
 --profile main
 ```
 
