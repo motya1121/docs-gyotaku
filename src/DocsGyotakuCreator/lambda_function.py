@@ -22,9 +22,12 @@ def get_site_url(WebSiteId):
 
 
 def lambda_handler(event, context):
+    print(json.dumps(event))
     for Record in event['Records']:
         # Exclusion add and update website
         if Record['dynamodb']['Keys']['WebSiteId']['S'] == Record['dynamodb']['Keys']['SortId']['S']:
+            continue
+        if 'NewImage' not in Record['dynamodb'].keys():
             continue
 
         WebSiteId = Record['dynamodb']['NewImage']['WebSiteId']['S']
@@ -51,8 +54,8 @@ def lambda_handler(event, context):
         # upload to S3
         s3 = boto3.resource('s3', region_name='ap-northeast-1')
         bucket = s3.Bucket(S3_BUCKET_NAME)
-        bucket.upload_file(temp_web_file_path, f'ArchiveData/{WebSiteId}/{timestamp}.html')
-        bucket.upload_file(temp_data_file_path, f'ArchiveData/{WebSiteId}/data.json')
+        bucket.upload_file(temp_web_file_path, f'ArchiveData/{WebSiteId}/{timestamp}/{timestamp}.html')
+        bucket.upload_file(temp_data_file_path, f'ArchiveData/{WebSiteId}/{timestamp}/data.json')
 
         temp_dir.cleanup()
 

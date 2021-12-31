@@ -21,6 +21,12 @@ def get_site_url(WebSiteId):
 
 def lambda_handler(event, context):
     for Record in event['Records']:
+        # Exclusion add and update website
+        if Record['dynamodb']['Keys']['WebSiteId']['S'] == Record['dynamodb']['Keys']['SortId']['S']:
+            continue
+        if 'NewImage' not in Record['dynamodb'].keys():
+            continue
+
         WebSiteId = Record['dynamodb']['NewImage']['WebSiteId']['S']
         timestamp = Record['dynamodb']['NewImage']['timestamp']['N']
         site_hash = Record['dynamodb']['NewImage']['SortId']['S']
