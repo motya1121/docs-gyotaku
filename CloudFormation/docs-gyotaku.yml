@@ -6,6 +6,9 @@ Parameters:
   DDBGTableName:
     Type: String
     Description: Dynamo DB table name
+  DocsUpdateNotifyQueueName:
+    Type: String
+    Description: this queue contain information for updated docs.
 
 Resources:
   # Event Rule
@@ -14,7 +17,7 @@ Resources:
     Properties:
       EventBusName: default
       Name: docs-gyotaku-watcher
-      ScheduleExpression: "rate(1 hour)"
+      ScheduleExpression: 'rate(1 hour)'
       Targets:
         - Arn: !GetAtt DocsWatcher.Arn
           Id: docs-gyotaku-watcher
@@ -22,11 +25,10 @@ Resources:
   PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
-      Action: "lambda:InvokeFunction"
+      Action: 'lambda:InvokeFunction'
       FunctionName: !Ref DocsWatcher
-      Principal: "events.amazonaws.com"
+      Principal: 'events.amazonaws.com'
       SourceArn: !GetAtt EventRules.Arn
-
 
   # Docs Watcher
   DocsWatcherRole:
@@ -92,16 +94,16 @@ Resources:
     Properties:
       TableName: !Ref DDBGTableName
       AttributeDefinitions:
-        - AttributeName: "WebSiteId"
-          AttributeType: "S"
-        - AttributeName: "SortId"
-          AttributeType: "S"
+        - AttributeName: 'WebSiteId'
+          AttributeType: 'S'
+        - AttributeName: 'SortId'
+          AttributeType: 'S'
         - AttributeName: timestamp
-          AttributeType: "N"
+          AttributeType: 'N'
       KeySchema:
-        - AttributeName: "WebSiteId"
+        - AttributeName: 'WebSiteId'
           KeyType: HASH
-        - AttributeName: "SortId"
+        - AttributeName: 'SortId'
           KeyType: RANGE
       LocalSecondaryIndexes:
         - IndexName: SiteData
@@ -129,6 +131,15 @@ Resources:
       FunctionName: !GetAtt DocsGyotakuCreator.Arn
       StartingPosition: LATEST
 
+  ### execute function that enqueue updated data
+  DynamoDBStreamSQSEnqueue:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DDBTable.StreamArn
+      BatchSize: 1
+      Enabled: True
+      FunctionName: !GetAtt DocsUpdateInfoEnqueue.Arn
+      StartingPosition: LATEST
 
   ## Create gyotaku
   DocsGyotakuCreatorRole:
@@ -148,22 +159,22 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole
       Policies:
-        - PolicyName: "S3"
+        - PolicyName: 'S3'
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: '2012-10-17'
             Statement:
-              - Effect: "Allow"
-                Action: "s3:PutObject"
-                Resource: 
+              - Effect: 'Allow'
+                Action: 's3:PutObject'
+                Resource:
                   - !Sub 'arn:aws:s3:::${S3BucketName}'
                   - !Sub 'arn:aws:s3:::${S3BucketName}/*'
-        - PolicyName: "DynamoQuery"
+        - PolicyName: 'DynamoQuery'
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: '2012-10-17'
             Statement:
-              - Effect: "Allow"
-                Action: "dynamodb:Query"
-                Resource: '*'
+              - Effect: 'Allow'
+                Action: 'dynamodb:Query'
+                Resource: !GetAtt DDBTable.Arn
 
   DocsGyotakuCreator:
     Type: AWS::Lambda::Function
@@ -195,3 +206,66 @@ Resources:
       FunctionName: !Ref DocsGyotakuCreator
       FunctionVersion: !GetAtt DocsGyotakuCreatorVersion.Version
       Name: prod
+
+  # notification
+  DocsUpdateNotifyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref DocsUpdateNotifyQueueName
+      VisibilityTimeout: 300
+
+  ## notification lambda role
+  DocsUpdateNotifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: docs-watcher-notify-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: Enqueue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  - !GetAtt DocsUpdateNotifyQueue.Arn
+        - PolicyName: 'DynamoQuery'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'dynamodb:Query'
+                Resource: !GetAtt DDBTable.Arn
+
+  ## Enqueue lambda function
+  DocsUpdateInfoEnqueue:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: notification docs updated infomation enqueue.
+      FunctionName: docs-watcher-update-info
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Timeout: 180
+      Role: !GetAtt DocsUpdateNotifyRole.Arn
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          exports.hundler = function(event, context) {}
+      Environment:
+        Variables:
+          DocsUpdateNotifyQueueURL: !Ref DocsUpdateNotifyQueue
+          DDBTablename: !Ref DDBGTableName
