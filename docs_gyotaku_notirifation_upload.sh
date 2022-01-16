@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LAMBDA_FUNC_NAME="docs-watcher-notifier"
+LAMBDA_FUNC_NAME="docs-gyotaku-notifier"
 DIR_NAME="DocsGtyotakuNotification"
 profile="main"
 
