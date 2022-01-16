@@ -1,35 +1,37 @@
 # docs-gyotaku
 
 
-## deploy
+## Dynamo DB
 
-create
-```
-aws cloudformation create-stack \
---stack-name DocsGyotaku \
---template-body file://CloudFormation/docs-gyotaku.yml \
---capabilities CAPABILITY_NAMED_IAM \
---parameters \
-ParameterKey=S3BucketName,ParameterValue=docs-gyotaku-532648218247 \
-ParameterKey=DDBGTableName,ParameterValue=docs-gyotaku\
---profile main
-```
+### キーなど
 
-update
-```
-aws cloudformation update-stack \
---stack-name DocsGyotaku \
---template-body file://CloudFormation/docs-gyotaku.yml \
---capabilities CAPABILITY_NAMED_IAM \
---parameters \
-ParameterKey=S3BucketName,ParameterValue=docs-gyotaku-532648218247 \
-ParameterKey=DDBGTableName,ParameterValue=docs-gyotaku \
-ParameterKey=DocsUpdateNotifyQueueName,ParameterValue=docs-gyotaku-notify-queue \
-ParameterKey=CloudWatchAlermSNSArn,ParameterValue=arn:aws:sns:ap-northeast-1:532648218247:SendToSlackViaChatbot \
---profile main
-```
+- PartitionKey : HASH, プライマリキー
+- SortKey: Sort, ソートキー
+- LSI
+  - SiteData
+    - PartitionKey
+    - timestamp
 
-delete
-```
-aws cloudformation delete-stack --stack-name DocsGyotaku --profile main
-```
+### 監視対象サイト
+
+PartitionKey: site-@@@@@@@@@@
+SortKey: site-@@@@@@@@@@
+timestamp: 最終更新日時のタイムスタンプ(数値)
+url: サイトのURL
+type: Rss or msdocs
+is_archive: 魚拓を取るかどうか
+Property: プロパティ
+tags: サイトのタグ
+
+### サイトデータ
+
+PartitionKey: site-@@@@@@@@@@
+SortKey: ハッシュ値
+timestamp: 最終更新日時のタイムスタンプ(数値)
+url: サイトのURL
+
+### 受信者
+
+PartitionKey: user-@@@@@@@@@@
+SortKey: メアド
+tags: サイトのタグ
