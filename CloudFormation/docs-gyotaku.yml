@@ -202,11 +202,11 @@ Resources:
       Name: prod
 
   # Docs Gyotaku Notifier
-  DocsUpdateNotifierRole:
+  DocsGyotakuNotifierRole:
     Type: AWS::IAM::Role
     Properties:
       Path: /
-      RoleName: docs-watcher-notifier-role
+      RoleName: docs-gyotaku-notifier-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -242,11 +242,11 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Description: notification docs updated infomation.
-      FunctionName: docs-watcher-notifier
+      FunctionName: docs-gyotaku-notifier
       Handler: lambda_function.lambda_handler
       MemorySize: 128
       Timeout: 180
-      Role: !GetAtt DocsUpdateNotifierRole.Arn
+      Role: !GetAtt DocsGyotakuNotifierRole.Arn
       Runtime: python3.9
       Code:
         ZipFile: |
@@ -296,7 +296,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       Namespace: AWS/Lambda
-      AlarmName: lambda-docs-watcher-update-info-failed
+      AlarmName: lambda-docs-gyotaku-notifier-failed
       AlarmActions:
         - !Ref CloudWatchAlermSNSArn
       MetricName: Errors
@@ -308,4 +308,4 @@ Resources:
       TreatMissingData: notBreaching
       Dimensions:
         - Name: FunctionName
-          Value: docs-watcher-update-info
+          Value: docs-gyotaku-notifier
