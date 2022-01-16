@@ -27,6 +27,19 @@ def generate_site_id():
     return WebSiteId
 
 
+def verity_already_watched(url):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    scan_kwargs = {
+        'FilterExpression': Key('url').eq(url),
+    }
+    responses = table.scan(**scan_kwargs)
+    if responses['Count'] == 0:
+        return False
+    else:
+        return True
+
+
 def generate_user_id(mail_address):
     while True:
         number = random.randint(1, 9999999999)
@@ -41,11 +54,11 @@ def generate_user_id(mail_address):
     return UserId
 
 
-def verity_already_watched(url):
+def verity_already_submitted(mail_address):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
     scan_kwargs = {
-        'FilterExpression': Key('url').eq(url),
+        'FilterExpression': Key('SortKey').eq(mail_address),
     }
     responses = table.scan(**scan_kwargs)
     if responses['Count'] == 0:
@@ -154,6 +167,25 @@ def gyotaku_get(args):
                          f"{responses['Items'][0]['timestamp']}.html")
 
 
+def user_add(args):
+    email_address = args.email
+    if verity_already_submitted(mail_address=email_address) is True:
+        print(f'[INFO] "{email_address}" is already submitted')
+        return
+
+    insert_data = {}
+    insert_data['PartitionKey'] = generate_user_id(mail_address=email_address)
+    insert_data['SortKey'] = email_address
+    insert_data['tags'] = args.tags
+
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    table.put_item(Item=insert_data)
+
+    client = session.client('ses')
+    _ = client.verify_email_identity(EmailAddress=email_address)
+
+
 def test(args):
     print('test')
 
@@ -213,6 +245,25 @@ if __name__ == "__main__":
         help='gyotaku hash',
     )
     parser_gyotaku_get.set_defaults(handler=gyotaku_get)
+
+    # *** user ***
+    parser_user = subparsers.add_parser('user', help='see `user -h`')
+    parser_user_subparser = parser_user.add_subparsers()
+
+    # user-add
+    parser_user_add = parser_user_subparser.add_parser('add', help='see `user add -h`')
+    parser_user_add.add_argument(
+        '--email',
+        required=True,
+        help='Email address',
+    )
+    parser_user_add.add_argument(
+        '--tags',
+        required=True,
+        nargs='*',
+        help='document tags. ex) --tags test all',
+    )
+    parser_user_add.set_defaults(handler=user_add)
 
     # test
     parser_db = subparsers.add_parser('test', help='see `test -h`')
