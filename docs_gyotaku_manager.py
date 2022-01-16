@@ -20,11 +20,25 @@ def generate_site_id():
 
         dynamodb = session.resource('dynamodb')
         table = dynamodb.Table('docs-gyotaku')
-        responses = table.query(KeyConditionExpression=Key('WebSiteId').eq(WebSiteId) & Key('SortId').eq(WebSiteId))
+        responses = table.query(KeyConditionExpression=Key('PartitionKey').eq(WebSiteId) & Key('SortKey').eq(WebSiteId))
 
         if responses['Count'] == 0:
             break
     return WebSiteId
+
+
+def generate_user_id(mail_address):
+    while True:
+        number = random.randint(1, 9999999999)
+        UserId = f'user-{number:0=10}'
+
+        dynamodb = session.resource('dynamodb')
+        table = dynamodb.Table('docs-gyotaku')
+        responses = table.query(KeyConditionExpression=Key('PartitionKey').eq(UserId) & Key('SortKey').eq(mail_address))
+
+        if responses['Count'] == 0:
+            break
+    return UserId
 
 
 def verity_already_watched(url):
@@ -54,7 +68,7 @@ def db_list(args):
     else:
         print('SiteId          |is_archive |type\t|url|')
         for result in responses['Items']:
-            print('{0[WebSiteId]} |{0[is_archive]}       |{0[type]}\t|{0[url]}|'.format(result))
+            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t|{0[url]}|'.format(result))
 
 
 def db_add(args):
@@ -69,9 +83,9 @@ def db_add(args):
             continue
 
         site_id = generate_site_id()
-        insert_data['WebSiteId'] = site_id
+        insert_data['PartitionKey'] = site_id
         insert_data['timestamp'] = int(time.time())
-        insert_data['SortId'] = site_id
+        insert_data['SortKey'] = site_id
 
         dynamodb = session.resource('dynamodb')
         table = dynamodb.Table('docs-gyotaku')
@@ -85,7 +99,7 @@ def gyotaku_list(args):
     if args.siteId is not None:
         query_kwargs = {
             'IndexName': 'SiteData',
-            'KeyConditionExpression': Key('WebSiteId').eq(args.siteId),
+            'KeyConditionExpression': Key('PartitionKey').eq(args.siteId),
             'ScanIndexForward': False
         }
         responses = table.query(**query_kwargs)
@@ -95,7 +109,7 @@ def gyotaku_list(args):
         else:
             print('SiteId          | hash                                                     | timestamp           |')
             for item in responses['Items']:
-                print('{0[WebSiteId]} | {0[SortId]} | {1} |'.format(item, dt.fromtimestamp(item['timestamp'])))
+                print('{0[PartitionKey]} | {0[SortKey]} | {1} |'.format(item, dt.fromtimestamp(item['timestamp'])))
 
     else:
         print('SiteId          |is_archive |type\t| latest hash                                              |url|')
@@ -117,7 +131,7 @@ def gyotaku_list(args):
             site_data = table.query(**query_kwargs)['Items'][0]
 
             # print data
-            print('{0[WebSiteId]} |{0[is_archive]}       |{0[type]}\t| {1} |{0[url]}|'.format(
+            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t| {1} |{0[url]}|'.format(
                 watch_data, site_data['SortId']))
 
 
@@ -127,7 +141,7 @@ def gyotaku_get(args):
     siteId = args.siteId
     siteHash = args.hash
 
-    query_kwargs = {'KeyConditionExpression': Key('WebSiteId').eq(siteId) & Key('SortId').eq(siteHash)}
+    query_kwargs = {'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(siteHash)}
     responses = table.query(**query_kwargs)
 
     if responses['Count'] == 0:

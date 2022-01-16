@@ -12,30 +12,21 @@ S3_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
 DDB_TABLE_NAME = os.environ['DDBTablename']
 
 
-def get_site_url(WebSiteId):
-    db_session = boto3.Session(region_name='ap-northeast-1')
-    dynamodb = db_session.resource('dynamodb')
-    table = dynamodb.Table(DDB_TABLE_NAME)
-    responses = table.query(KeyConditionExpression=Key('WebSiteId').eq(WebSiteId) & Key('SortId').eq(WebSiteId))
-
-    return responses['Items'][0]['url']
-
-
 def lambda_handler(event, context):
     print(json.dumps(event))
     for Record in event['Records']:
         # Exclusion add and update website
-        if Record['dynamodb']['Keys']['WebSiteId']['S'] == Record['dynamodb']['Keys']['SortId']['S']:
+        if Record['dynamodb']['Keys']['PartitionKey']['S'] == Record['dynamodb']['Keys']['SortKey']['S']:
             continue
         if 'NewImage' not in Record['dynamodb'].keys():
             continue
 
-        WebSiteId = Record['dynamodb']['NewImage']['WebSiteId']['S']
+        WebSiteId = Record['dynamodb']['NewImage']['PartitionKey']['S']
         timestamp = Record['dynamodb']['NewImage']['timestamp']['N']
-        site_hash = Record['dynamodb']['NewImage']['SortId']['S']
+        site_hash = Record['dynamodb']['NewImage']['SortKey']['S']
+        url = Record['dynamodb']['NewImage']['url']['S']
 
         # get web site data
-        url = get_site_url(WebSiteId)
         result = requests.get(url)
 
         # create web site infomation
