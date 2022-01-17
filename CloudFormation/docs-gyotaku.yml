@@ -226,7 +226,9 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: 'Allow'
-                Action: 'dynamodb:Query'
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
                 Resource: !GetAtt DDBTable.Arn
         - PolicyName: send_mail
           PolicyDocument:

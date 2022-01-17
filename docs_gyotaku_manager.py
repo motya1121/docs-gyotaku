@@ -187,7 +187,7 @@ def user_add(args):
 
 
 def test(args):
-    print('test')
+    pass
 
 
 if __name__ == "__main__":
