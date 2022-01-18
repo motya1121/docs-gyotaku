@@ -58,8 +58,14 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'dynamodb:Scan'
+                  - 'dynamodb:Query'
                   - 'dynamodb:Updateitem'
-                Resource: !GetAtt DDBTable.Arn
+                Resource: 
+                  - !Join
+                    - ''
+                    - - !GetAtt DDBTable.Arn
+                      - '/*'
+                  - !GetAtt DDBTable.Arn
   DocsGyotakuWatcher:
     Type: AWS::Lambda::Function
     Properties:

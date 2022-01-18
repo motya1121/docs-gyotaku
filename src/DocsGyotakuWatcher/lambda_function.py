@@ -6,6 +6,8 @@ import requests
 import hashlib
 import time
 import logging
+import feedparser
+from datetime import datetime as dt
 
 logger = logging.getLogger()
 DDB_TABLE_NAME = os.environ['DDBTablename']
@@ -14,7 +16,7 @@ dynamodb = db_session.resource('dynamodb')
 table = dynamodb.Table(DDB_TABLE_NAME)
 
 
-def update_dynammodb(target_site, timestamp, hash_result):
+def update_dynammodb(target_site, url, timestamp, hash_result):
     option = {
         'Key': {
             'PartitionKey': target_site['PartitionKey'],
@@ -27,7 +29,7 @@ def update_dynammodb(target_site, timestamp, hash_result):
         },
         'ExpressionAttributeValues': {
             ':timestamp': timestamp,
-            ':url': target_site['url']
+            ':url': url
         }
     }
     table.update_item(**option)
@@ -45,12 +47,35 @@ def verify_web_site(target_site):
     if hash_result == target_site['SortKey']:
         return False
     else:
-        update_dynammodb(target_site, int(time.time()), hash_result)
+        update_dynammodb(target_site, target_site['url'], int(time.time()), hash_result)
         return
 
 
 def verify_msdocs_site(target_site):
     pass
+
+
+def verify_rss_site(target_site):
+    # get latest timestamp
+    query_kwargs = {
+        'IndexName': 'SiteData',
+        'Limit': 1,
+        'KeyConditionExpression': Key('PartitionKey').eq(target_site["PartitionKey"]),
+        'ScanIndexForward': False
+    }
+    last_modifed_timestamp = int(table.query(**query_kwargs)['Items'][0]['timestamp'])
+    last_modifed_dt = dt.utcfromtimestamp(last_modifed_timestamp)
+
+    # get hash
+    result = requests.get(target_site['url'])
+    hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
+
+    # parse rss
+    d = feedparser.parse(target_site['url'])
+    for entry in d.entries:
+        published_dt = dt(*entry['published_parsed'][:6])
+        if last_modifed_dt < published_dt:
+            update_dynammodb(target_site, entry['link'], int(time.time()), hash_result)
 
 
 def get_target_site_list():
@@ -71,3 +96,5 @@ def lambda_handler(event, context):
             _ = verify_web_site(target_site=target_site)
         elif target_site['type'] == "msdocs":
             _ = verify_msdocs_site(target_site=target_site)
+        elif target_site['type'] == "rss":
+            _ = verify_rss_site(target_site=target_site)

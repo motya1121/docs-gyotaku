@@ -17,6 +17,7 @@ rm -r requests
 rm -r bs4
 rm -r soupsieve
 rm -r urllib3
+rm -r feedparser
 cd ../
 
 aws lambda update-function-code --function-name ${LAMBDA_FUNC_NAME} --zip-file fileb://${DIR_NAME}.zip --region ap-northeast-1 --output text --profile ${profile}
