@@ -73,7 +73,7 @@ def verity_already_submitted(mail_address):
         return True
 
 
-def db_list(args):
+def site_list(args):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
     scan_kwargs = {
@@ -90,7 +90,7 @@ def db_list(args):
             print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t|{0[url]}|'.format(result))
 
 
-def db_add(args):
+def site_add(args):
     insert_datas = None
     with open(args.file, 'r') as f:
         insert_datas = json.load(f)
@@ -111,7 +111,7 @@ def db_add(args):
         table.put_item(Item=insert_data)
 
 
-def db_unwatch(args):
+def site_unwatch(args):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
 
@@ -136,7 +136,7 @@ def db_unwatch(args):
     else:
         print('success')
 
-def db_watch(args):
+def site_watch(args):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
 
@@ -262,7 +262,7 @@ if __name__ == "__main__":
         action='store_true',
         help='verbose watching site data',
     )
-    parser_site_list.set_defaults(handler=db_list)
+    parser_site_list.set_defaults(handler=site_list)
 
     # site-add
     parser_site_add = parser_site_subparser.add_parser('add', help='see `db add -h`')
@@ -272,7 +272,7 @@ if __name__ == "__main__":
         required=True,
         help='all files',
     )
-    parser_site_add.set_defaults(handler=db_add)
+    parser_site_add.set_defaults(handler=site_add)
 
     # site-unwatch
     parser_site_unwatch = parser_site_subparser.add_parser('unwatch', help='see `db unwatch -h`')
@@ -281,7 +281,7 @@ if __name__ == "__main__":
         required=True,
         help='SiteId',
     )
-    parser_site_unwatch.set_defaults(handler=db_unwatch)
+    parser_site_unwatch.set_defaults(handler=site_unwatch)
 
     # dsite-watch
     parser_site_watch = parser_site_subparser.add_parser('watch', help='see `db watch -h`')
@@ -290,7 +290,7 @@ if __name__ == "__main__":
         required=True,
         help='SiteId',
     )
-    parser_site_watch.set_defaults(handler=db_watch)
+    parser_site_watch.set_defaults(handler=site_watch)
 
     # *** gyotaku ***
     parser_gyotaku = subparsers.add_parser('gyotaku', help='see `gyotaku -h`')
