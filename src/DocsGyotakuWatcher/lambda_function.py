@@ -8,6 +8,7 @@ import time
 import logging
 import feedparser
 from datetime import datetime as dt
+import json
 
 logger = logging.getLogger()
 DDB_TABLE_NAME = os.environ['DDBTablename']
@@ -52,6 +53,38 @@ def verify_web_site(target_site):
 
 
 def verify_msdocs_site(target_site):
+    pass
+
+
+def verify_github_site(target_site):
+    # https://qiita.com/nannany_hey/items/23f847e0a331da52ed77
+    # https://api.github.com/repos/motya1121/web-update-test/commits
+
+    # get latest timestamp
+    query_kwargs = {
+        'IndexName': 'SiteData',
+        'Limit': 1,
+        'KeyConditionExpression': Key('PartitionKey').eq(target_site["PartitionKey"]),
+        'ScanIndexForward': False
+    }
+    last_modifed_timestamp = int(table.query(**query_kwargs)['Items'][0]['timestamp'])
+    last_modifed_dt = dt.utcfromtimestamp(last_modifed_timestamp)
+
+    url = "https://api.github.com/repos/{0[owner]}/{0[repo]}/commits?path={0[path]}".format(target_site['property'])
+    result = requests.get(url=url)
+    commits_data = json.loads(result.text)
+
+    for commit_d in commits_data:
+        commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
+        if commit_dt <= last_modifed_dt:
+            continue
+
+        # get hash
+        result = requests.get(commit_d['url'])
+        hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
+
+        update_dynammodb(target_site, commit_d['html_url'], int(time.time()), hash_result)
+
     pass
 
 

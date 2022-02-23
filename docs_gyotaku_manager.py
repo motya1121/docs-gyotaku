@@ -250,47 +250,47 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='DocsWatcher')
     subparsers = parser.add_subparsers()
 
-    # *** db ***
-    parser_db = subparsers.add_parser('db', help='see `db -h`')
-    parser_db_subparser = parser_db.add_subparsers()
+    # *** site ***
+    parser_site = subparsers.add_parser('site', help='web site setting')
+    parser_site_subparser = parser_site.add_subparsers()
 
-    # db-list
-    parser_db_list = parser_db_subparser.add_parser('list', help='see `db list -h`')
-    parser_db_list.add_argument(
+    # site-list
+    parser_site_list = parser_site_subparser.add_parser('list', help='see `db list -h`')
+    parser_site_list.add_argument(
         '-v',
         '--verbose',
         action='store_true',
         help='verbose watching site data',
     )
-    parser_db_list.set_defaults(handler=db_list)
+    parser_site_list.set_defaults(handler=db_list)
 
-    # db-add
-    parser_db_add = parser_db_subparser.add_parser('add', help='see `db add -h`')
-    parser_db_add.add_argument(
+    # site-add
+    parser_site_add = parser_site_subparser.add_parser('add', help='see `db add -h`')
+    parser_site_add.add_argument(
         '-f',
         '--file',
         required=True,
         help='all files',
     )
-    parser_db_add.set_defaults(handler=db_add)
+    parser_site_add.set_defaults(handler=db_add)
 
-    # db-unwatch
-    parser_db_unwatch = parser_db_subparser.add_parser('unwatch', help='see `db unwatch -h`')
-    parser_db_unwatch.add_argument(
+    # site-unwatch
+    parser_site_unwatch = parser_site_subparser.add_parser('unwatch', help='see `db unwatch -h`')
+    parser_site_unwatch.add_argument(
         '--siteId',
         required=True,
         help='SiteId',
     )
-    parser_db_unwatch.set_defaults(handler=db_unwatch)
+    parser_site_unwatch.set_defaults(handler=db_unwatch)
 
-    # db-watch
-    parser_db_watch = parser_db_subparser.add_parser('watch', help='see `db watch -h`')
-    parser_db_watch.add_argument(
+    # dsite-watch
+    parser_site_watch = parser_site_subparser.add_parser('watch', help='see `db watch -h`')
+    parser_site_watch.add_argument(
         '--siteId',
         required=True,
         help='SiteId',
     )
-    parser_db_watch.set_defaults(handler=db_watch)
+    parser_site_watch.set_defaults(handler=db_watch)
 
     # *** gyotaku ***
     parser_gyotaku = subparsers.add_parser('gyotaku', help='see `gyotaku -h`')
