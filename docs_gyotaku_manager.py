@@ -5,6 +5,7 @@ import time
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime as dt
+from urllib.parse import urlparse
 
 SSO_PRODILE = "main"
 S3_BUCKET_NAME = "docs-gyotaku-532648218247"
@@ -23,6 +24,7 @@ def generate_site_id():
 
     return WebSiteId
 
+
 def exist_site_id(siteId: str):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
@@ -32,6 +34,7 @@ def exist_site_id(siteId: str):
         return False
     else:
         return True
+
 
 def verity_already_watched(url):
     dynamodb = session.resource('dynamodb')
@@ -91,9 +94,25 @@ def site_list(args):
 
 
 def site_add(args):
-    insert_datas = None
-    with open(args.file, 'r') as f:
-        insert_datas = json.load(f)
+    insert_datas = []
+    if args.file is not None:
+        print('file')
+
+        with open(args.file, 'r') as f:
+            insert_datas = json.load(f)
+
+    if args.url is not None:
+        o = urlparse(args.url)
+        template = {
+            "url": args.url,
+            "type": "web",
+            "is_archive": True,
+            "is_watch": True,
+            "property": {},
+            "tags": ["test"],
+            "title": o.netloc
+        }
+        insert_datas.append(template)
 
     for insert_data in insert_datas:
         # verify already wached
@@ -109,6 +128,7 @@ def site_add(args):
         dynamodb = session.resource('dynamodb')
         table = dynamodb.Table('docs-gyotaku')
         table.put_item(Item=insert_data)
+        print(f'url: {insert_data["url"]} is success.')
 
 
 def site_unwatch(args):
@@ -119,22 +139,19 @@ def site_unwatch(args):
     if exist_site_id(args.siteId) is False:
         print('error site id not found.')
 
-    response = table.update_item(
-        Key={
-            'PartitionKey': site_id,
-            'SortKey': site_id
-        },
-        UpdateExpression="set is_watch=:w",
-        ExpressionAttributeValues={
-            ':w': False
-        },
-        ReturnValues="UPDATED_NEW"
-    )
+    response = table.update_item(Key={
+        'PartitionKey': site_id,
+        'SortKey': site_id
+    },
+                                 UpdateExpression="set is_watch=:w",
+                                 ExpressionAttributeValues={':w': False},
+                                 ReturnValues="UPDATED_NEW")
 
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
         print('error')
     else:
         print('success')
+
 
 def site_watch(args):
     dynamodb = session.resource('dynamodb')
@@ -144,22 +161,19 @@ def site_watch(args):
     if exist_site_id(args.siteId) is False:
         print('error site id not found.')
 
-    response = table.update_item(
-        Key={
-            'PartitionKey': site_id,
-            'SortKey': site_id
-        },
-        UpdateExpression="set is_watch=:w",
-        ExpressionAttributeValues={
-            ':w': True
-        },
-        ReturnValues="UPDATED_NEW"
-    )
+    response = table.update_item(Key={
+        'PartitionKey': site_id,
+        'SortKey': site_id
+    },
+                                 UpdateExpression="set is_watch=:w",
+                                 ExpressionAttributeValues={':w': True},
+                                 ReturnValues="UPDATED_NEW")
 
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
         print('error')
     else:
         print('success')
+
 
 def gyotaku_list(args):
     dynamodb = session.resource('dynamodb')
@@ -269,8 +283,12 @@ if __name__ == "__main__":
     parser_site_add.add_argument(
         '-f',
         '--file',
-        required=True,
         help='all files',
+    )
+    parser_site_add.add_argument(
+        '-u',
+        '--url',
+        help='site url',
     )
     parser_site_add.set_defaults(handler=site_add)
 
