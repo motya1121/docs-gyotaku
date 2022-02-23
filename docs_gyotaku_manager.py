@@ -18,14 +18,20 @@ def generate_site_id():
         number = random.randint(1, 9999999999)
         WebSiteId = f'site-{number:0=10}'
 
-        dynamodb = session.resource('dynamodb')
-        table = dynamodb.Table('docs-gyotaku')
-        responses = table.query(KeyConditionExpression=Key('PartitionKey').eq(WebSiteId) & Key('SortKey').eq(WebSiteId))
-
-        if responses['Count'] == 0:
+        if exist_site_id(siteId=WebSiteId) is False:
             break
+
     return WebSiteId
 
+def exist_site_id(siteId: str):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    responses = table.query(KeyConditionExpression=Key('PartitionKey').eq(siteId) & Key('SortKey').eq(siteId))
+
+    if responses['Count'] == 0:
+        return False
+    else:
+        return True
 
 def verity_already_watched(url):
     dynamodb = session.resource('dynamodb')
@@ -104,6 +110,56 @@ def db_add(args):
         table = dynamodb.Table('docs-gyotaku')
         table.put_item(Item=insert_data)
 
+
+def db_unwatch(args):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+
+    site_id = args.siteId
+    if exist_site_id(args.siteId) is False:
+        print('error site id not found.')
+
+    response = table.update_item(
+        Key={
+            'PartitionKey': site_id,
+            'SortKey': site_id
+        },
+        UpdateExpression="set is_watch=:w",
+        ExpressionAttributeValues={
+            ':w': False
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+    if response['ResponseMetadata']['HTTPStatusCode'] != 200:
+        print('error')
+    else:
+        print('success')
+
+def db_watch(args):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+
+    site_id = args.siteId
+    if exist_site_id(args.siteId) is False:
+        print('error site id not found.')
+
+    response = table.update_item(
+        Key={
+            'PartitionKey': site_id,
+            'SortKey': site_id
+        },
+        UpdateExpression="set is_watch=:w",
+        ExpressionAttributeValues={
+            ':w': True
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+    if response['ResponseMetadata']['HTTPStatusCode'] != 200:
+        print('error')
+    else:
+        print('success')
 
 def gyotaku_list(args):
     dynamodb = session.resource('dynamodb')
@@ -217,6 +273,24 @@ if __name__ == "__main__":
         help='all files',
     )
     parser_db_add.set_defaults(handler=db_add)
+
+    # db-unwatch
+    parser_db_unwatch = parser_db_subparser.add_parser('unwatch', help='see `db unwatch -h`')
+    parser_db_unwatch.add_argument(
+        '--siteId',
+        required=True,
+        help='SiteId',
+    )
+    parser_db_unwatch.set_defaults(handler=db_unwatch)
+
+    # db-watch
+    parser_db_watch = parser_db_subparser.add_parser('watch', help='see `db watch -h`')
+    parser_db_watch.add_argument(
+        '--siteId',
+        required=True,
+        help='SiteId',
+    )
+    parser_db_watch.set_defaults(handler=db_watch)
 
     # *** gyotaku ***
     parser_gyotaku = subparsers.add_parser('gyotaku', help='see `gyotaku -h`')
