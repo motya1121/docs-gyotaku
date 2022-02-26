@@ -196,26 +196,29 @@ def gyotaku_list(args):
 
     else:
         print('SiteId          |is_archive |type\t| latest hash                                              |url|')
-        # get site list
-        scan_kwargs = {
-            'FilterExpression': Attr('timestamp').not_exists(),
-        }
+
+        scan_kwargs = {'FilterExpression': Key('SortKey').begins_with('site-')}
         responses = table.scan(**scan_kwargs)
 
         # get latest site data
         for watch_data in responses['Items']:
-            siteId = watch_data['SortId']
+            siteId = watch_data['PartitionKey']
             query_kwargs = {
                 'IndexName': 'SiteData',
-                'KeyConditionExpression': Key('WebSiteId').eq(siteId),
+                'KeyConditionExpression': Key('PartitionKey').eq(siteId),
                 'ScanIndexForward': False,
                 'Limit': 1
             }
-            site_data = table.query(**query_kwargs)['Items'][0]
+            site_hash = table.query(**query_kwargs)['Items'][0]['SortKey']
+
+            query_kwargs = {
+                'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(site_hash),
+                'Limit': 1
+            }
+            url = table.query(**query_kwargs)['Items'][0]['url']
 
             # print data
-            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t| {1} |{0[url]}|'.format(
-                watch_data, site_data['SortId']))
+            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t| {1} |{2}|'.format(watch_data, site_hash, url))
 
 
 def gyotaku_get(args):
@@ -311,7 +314,7 @@ if __name__ == "__main__":
     parser_site_watch.set_defaults(handler=site_watch)
 
     # *** gyotaku ***
-    parser_gyotaku = subparsers.add_parser('gyotaku', help='see `gyotaku -h`')
+    parser_gyotaku = subparsers.add_parser('gyotaku', help='manage gyotaku data')
     parser_gyotaku_subparser = parser_gyotaku.add_subparsers()
 
     # gyotaku-list
