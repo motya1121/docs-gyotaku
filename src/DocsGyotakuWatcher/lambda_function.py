@@ -106,8 +106,15 @@ def verify_rss_site(target_site):
     # parse rss
     d = feedparser.parse(target_site['url'])
     for entry in d.entries:
-        published_dt = dt(*entry['published_parsed'][:6])
-        if last_modifed_dt < published_dt:
+        pubdate_dt = None
+        if 'published_parsed' in entry.keys():
+            pubdate_dt = dt(*entry['published_parsed'][:6])
+        elif 'updated_parsed' in entry.keys():
+            pubdate_dt = dt(*entry['updated_parsed'][:6])
+        else:
+            raise KeyError
+
+        if last_modifed_dt < pubdate_dt:
             update_dynammodb(target_site, entry['link'], int(time.time()), hash_result)
 
 
