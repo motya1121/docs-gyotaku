@@ -99,10 +99,6 @@ def verify_rss_site(target_site):
     last_modifed_timestamp = int(table.query(**query_kwargs)['Items'][0]['timestamp'])
     last_modifed_dt = dt.utcfromtimestamp(last_modifed_timestamp)
 
-    # get hash
-    result = requests.get(target_site['url'])
-    hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
-
     # parse rss
     d = feedparser.parse(target_site['url'])
     for entry in d.entries:
@@ -115,6 +111,11 @@ def verify_rss_site(target_site):
             raise KeyError
 
         if last_modifed_dt < pubdate_dt:
+            # get hash
+            result = requests.get(entry['link'])
+            hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
+
+            print(f"push {entry['link']}")
             update_dynammodb(target_site, entry['link'], int(time.time()), hash_result)
 
 
