@@ -263,7 +263,11 @@ def gyotaku_list(args):
                 'ScanIndexForward': False,
                 'Limit': 2
             }
-            site_hash = table.query(**query_kwargs)['Items'][0]['SortKey']
+            # 初回取得が完了していない場合
+            site_hash_responses = table.query(**query_kwargs)
+            if site_hash_responses['Count'] == 0:
+                continue
+            site_hash = site_hash_responses['Items'][0]['SortKey']
 
             query_kwargs = {
                 'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(site_hash),
