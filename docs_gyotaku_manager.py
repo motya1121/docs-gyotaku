@@ -224,6 +224,7 @@ def gyotaku_list(args):
         query_kwargs = {
             'IndexName': 'SiteData',
             'KeyConditionExpression': Key('PartitionKey').eq(args.siteId),
+            'FilterExpression': Attr('SortKey').ne(args.siteId),
             'ScanIndexForward': False
         }
         responses = table.query(**query_kwargs)
@@ -233,7 +234,7 @@ def gyotaku_list(args):
         else:
             print('SiteId          | hash                                                     | timestamp           |')
             for item in responses['Items']:
-                print('{0[PartitionKey]} | {0[SortKey]} | {1} |'.format(item, dt.fromtimestamp(item['timestamp'])))
+                print('{0[PartitionKey]} | {0[SortKey]} | {1} |'.format(item, dt.fromtimestamp(int(item['timestamp']))))
 
     else:
         print('SiteId          |is_archive |type\t| latest hash                                              |url|')
