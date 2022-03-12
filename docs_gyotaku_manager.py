@@ -220,21 +220,31 @@ def gyotaku_list(args):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
 
+    if args.limit is not None and 1 < args.limit:
+        limit = int(args.limit)
+    else:
+        limit = 100
+
     if args.siteId is not None:
         query_kwargs = {
             'IndexName': 'SiteData',
             'KeyConditionExpression': Key('PartitionKey').eq(args.siteId),
             'FilterExpression': Attr('SortKey').ne(args.siteId),
-            'ScanIndexForward': False
+            'ScanIndexForward': False,
+            'Limit': limit + 1
         }
         responses = table.query(**query_kwargs)
         if responses['Count'] == 0:
             print(f'siteid:{args.siteId} is not found')
             return 0
         else:
+            count = 0
             print('SiteId          | hash                                                     | timestamp           |')
             for item in responses['Items']:
                 print('{0[PartitionKey]} | {0[SortKey]} | {1} |'.format(item, dt.fromtimestamp(int(item['timestamp']))))
+                count += 1
+                if limit == count:
+                    break
 
     else:
         print('SiteId          |is_archive |type\t| latest hash                                              |url|')
@@ -377,16 +387,22 @@ if __name__ == "__main__":
     parser_gyotaku_subparser = parser_gyotaku.add_subparsers()
 
     # gyotaku-list
-    parser_gyotaku_list = parser_gyotaku_subparser.add_parser('list', help='see `gyotaku list -h`')
+    parser_gyotaku_list = parser_gyotaku_subparser.add_parser(
+        'list', help='魚拓情報のリスト。SiteIdを指定しない場合全てのサイトの最新情報、指定した場合そのサイトの全ての魚拓情報を表示')
     parser_gyotaku_list.add_argument(
         '-s',
         '--siteId',
-        help='Web Site Id',
+        help='魚拓のリスト表示するSiteId',
+    )
+    parser_gyotaku_list.add_argument(
+        '--limit',
+        type=int,
+        help='魚拓のリスト表示件数',
     )
     parser_gyotaku_list.set_defaults(handler=gyotaku_list)
 
     # gyotaku-get
-    parser_gyotaku_get = parser_gyotaku_subparser.add_parser('get', help='see `gyotaku get -h`')
+    parser_gyotaku_get = parser_gyotaku_subparser.add_parser('get', help='魚拓を取得する')
     parser_gyotaku_get.add_argument(
         '-s',
         '--siteId',
