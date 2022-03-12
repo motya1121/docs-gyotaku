@@ -238,6 +238,7 @@ def gyotaku_list(args):
     else:
         print('SiteId          |is_archive |type\t| latest hash                                              |url|')
 
+        # get site ids
         scan_kwargs = {'FilterExpression': Key('SortKey').begins_with('site-')}
         responses = table.scan(**scan_kwargs)
 
@@ -247,8 +248,9 @@ def gyotaku_list(args):
             query_kwargs = {
                 'IndexName': 'SiteData',
                 'KeyConditionExpression': Key('PartitionKey').eq(siteId),
+                'FilterExpression': Attr('SortKey').ne(siteId),
                 'ScanIndexForward': False,
-                'Limit': 1
+                'Limit': 2
             }
             site_hash = table.query(**query_kwargs)['Items'][0]['SortKey']
 
