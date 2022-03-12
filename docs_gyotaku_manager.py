@@ -1,5 +1,5 @@
 import argparse
-from ast import Or
+import os
 import json
 import random
 import time
@@ -280,8 +280,12 @@ def gyotaku_get(args):
 
     s3 = session.resource('s3')
     bucket = s3.Bucket(S3_BUCKET_NAME)
-    bucket.download_file(f"ArchiveData/{siteId}/{responses['Items'][0]['timestamp']}.html",
-                         f"{responses['Items'][0]['timestamp']}.html")
+    s3_prefix = f"ArchiveData/{siteId}/{responses['Items'][0]['timestamp']}"
+    objs = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Prefix=s3_prefix)
+    for o in objs.get('Contents'):
+        os.makedirs(str(responses['Items'][0]['timestamp']), exist_ok=True)
+        file_name = os.path.basename(o.get('Key'))
+        bucket.download_file(o.get('Key'), f"{responses['Items'][0]['timestamp']}/{file_name}")
 
 
 def user_add(args):
