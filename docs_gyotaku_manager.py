@@ -1,4 +1,5 @@
 import argparse
+from ast import Or
 import json
 import random
 import time
@@ -79,9 +80,14 @@ def verity_already_submitted(mail_address):
 def site_list(args):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
-    scan_kwargs = {
-        'FilterExpression': Key('is_watch').eq(True),
-    }
+    if args.all is True:
+        scan_kwargs = {
+            'FilterExpression': Attr('is_watch').exists(),
+        }
+    else:
+        scan_kwargs = {
+            'FilterExpression': Key('is_watch').eq(True),
+        }
     responses = table.scan(**scan_kwargs)
 
     if args.verbose is True:
@@ -268,35 +274,41 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers()
 
     # *** site ***
-    parser_site = subparsers.add_parser('site', help='web site setting')
+    parser_site = subparsers.add_parser('site', help='docs gyotakuで監視するwebサイトの設定')
     parser_site_subparser = parser_site.add_subparsers()
 
     # site-list
-    parser_site_list = parser_site_subparser.add_parser('list', help='see `db list -h`')
+    parser_site_list = parser_site_subparser.add_parser('list', help='docs gyotakuで監視中のwebサイト一覧')
     parser_site_list.add_argument(
         '-v',
         '--verbose',
         action='store_true',
         help='verbose watching site data',
     )
+    parser_site_list.add_argument(
+        '-a',
+        '--all',
+        action='store_true',
+        help='all site data',
+    )
     parser_site_list.set_defaults(handler=site_list)
 
     # site-add
-    parser_site_add = parser_site_subparser.add_parser('add', help='see `db add -h`')
+    parser_site_add = parser_site_subparser.add_parser('add', help='docs gyotakuで監視したいwebサイトつ追加')
     parser_site_add.add_argument(
         '-f',
         '--file',
-        help='all files',
+        help='jsonファイルの内容から追加',
     )
     parser_site_add.add_argument(
         '-u',
         '--url',
-        help='site url',
+        help='指定したWebサイトのURLを追加',
     )
     parser_site_add.set_defaults(handler=site_add)
 
     # site-unwatch
-    parser_site_unwatch = parser_site_subparser.add_parser('unwatch', help='see `db unwatch -h`')
+    parser_site_unwatch = parser_site_subparser.add_parser('unwatch', help='docs gyotakuでの監視を停止')
     parser_site_unwatch.add_argument(
         '--siteId',
         required=True,
@@ -304,8 +316,8 @@ if __name__ == "__main__":
     )
     parser_site_unwatch.set_defaults(handler=site_unwatch)
 
-    # dsite-watch
-    parser_site_watch = parser_site_subparser.add_parser('watch', help='see `db watch -h`')
+    # site-watch
+    parser_site_watch = parser_site_subparser.add_parser('watch', help='docs gyotakuでの監視を再開')
     parser_site_watch.add_argument(
         '--siteId',
         required=True,
@@ -314,7 +326,7 @@ if __name__ == "__main__":
     parser_site_watch.set_defaults(handler=site_watch)
 
     # *** gyotaku ***
-    parser_gyotaku = subparsers.add_parser('gyotaku', help='manage gyotaku data')
+    parser_gyotaku = subparsers.add_parser('gyotaku', help='魚拓データの管理')
     parser_gyotaku_subparser = parser_gyotaku.add_subparsers()
 
     # gyotaku-list
