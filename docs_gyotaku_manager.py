@@ -148,14 +148,20 @@ def site_unwatch(args):
     site_id = args.siteId
     if exist_site_id(args.siteId) is False:
         print('error site id not found.')
+        return
 
-    response = table.update_item(Key={
-        'PartitionKey': site_id,
-        'SortKey': site_id
-    },
-                                 UpdateExpression="set is_watch=:w",
-                                 ExpressionAttributeValues={':w': False},
-                                 ReturnValues="UPDATED_NEW")
+    update_kwargs = {
+        'Key': {
+            'PartitionKey': site_id,
+            'SortKey': site_id
+        },
+        'UpdateExpression': "set is_watch=:w",
+        'ExpressionAttributeValues': {
+            ':w': False
+        },
+        'ReturnValues': "UPDATED_NEW"
+    }
+    response = table.update_item(**update_kwargs)
 
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
         print('error')
@@ -170,14 +176,39 @@ def site_watch(args):
     site_id = args.siteId
     if exist_site_id(args.siteId) is False:
         print('error site id not found.')
+        return
 
-    response = table.update_item(Key={
-        'PartitionKey': site_id,
-        'SortKey': site_id
-    },
-                                 UpdateExpression="set is_watch=:w",
-                                 ExpressionAttributeValues={':w': True},
-                                 ReturnValues="UPDATED_NEW")
+    if args.now is True:
+        timestamp = int(time.time())
+        update_kwargs = {
+            'Key': {
+                'PartitionKey': site_id,
+                'SortKey': site_id
+            },
+            'UpdateExpression': "set #timestamp = :timestamp, #is_watch = :is_watch",
+            'ExpressionAttributeNames': {
+                '#timestamp': 'timestamp',
+                '#is_watch': 'is_watch'
+            },
+            'ExpressionAttributeValues': {
+                ':timestamp': timestamp,
+                ':is_watch': True
+            },
+            'ReturnValues': "UPDATED_NEW"
+        }
+    else:
+        update_kwargs = {
+            'Key': {
+                'PartitionKey': site_id,
+                'SortKey': site_id
+            },
+            'UpdateExpression': "set is_watch=:w",
+            'ExpressionAttributeValues': {
+                ':w': True
+            },
+            'ReturnValues': "UPDATED_NEW"
+        }
+    response = table.update_item(**update_kwargs)
 
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
         print('error')
@@ -326,6 +357,11 @@ if __name__ == "__main__":
         '--siteId',
         required=True,
         help='SiteId',
+    )
+    parser_site_watch.add_argument(
+        '--now',
+        action='store_true',
+        help='現在の時刻から監視を再開する',
     )
     parser_site_watch.set_defaults(handler=site_watch)
 
