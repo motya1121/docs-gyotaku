@@ -17,10 +17,10 @@ dynamodb = db_session.resource('dynamodb')
 table = dynamodb.Table(DDB_TABLE_NAME)
 
 
-def update_dynammodb(target_site, url, timestamp, hash_result):
+def update_dynammodb(SiteId, hash_result, url, timestamp):
     option = {
         'Key': {
-            'PartitionKey': target_site['PartitionKey'],
+            'PartitionKey': SiteId,
             'SortKey': hash_result
         },
         'UpdateExpression': 'set #timestamp = :timestamp, #url = :url',
@@ -34,10 +34,29 @@ def update_dynammodb(target_site, url, timestamp, hash_result):
         }
     }
     table.update_item(**option)
-    logger.info(f'site: {target_site["PartitionKey"]} updated(SortKey: {hash_result})')
+    logger.info(f'site: {SiteId} updated(SortKey: {hash_result})')
+
+
+def update_latest_timestamp(SiteId, timestamp):
+    option = {
+        'Key': {
+            'PartitionKey': SiteId,
+            'SortKey': SiteId
+        },
+        'UpdateExpression': 'set #timestamp = :timestamp',
+        'ExpressionAttributeNames': {
+            '#timestamp': 'timestamp',
+        },
+        'ExpressionAttributeValues': {
+            ':timestamp': timestamp,
+        }
+    }
+    table.update_item(**option)
+    logger.info(f'site: {SiteId} updated(latest timestamp)')
 
 
 def verify_web_site(target_site):
+    timestamp = int(time.time())
     result = requests.get(target_site['url'])
     hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
@@ -45,11 +64,17 @@ def verify_web_site(target_site):
     # soup = BeautifulSoup(esult.text, "html.parser")
     # print(soup.h1)
 
-    if hash_result == target_site['SortKey']:
-        return False
+    print(f"latest hash {target_site['latest_data']['SortKey']}")
+    if hash_result == target_site['latest_data']['SortKey']:
+        pass
     else:
-        update_dynammodb(target_site, target_site['url'], int(time.time()), hash_result)
-        return
+        update_dynammodb(SiteId=target_site["PartitionKey"],
+                         hash_result=hash_result,
+                         url=target_site['url'],
+                         timestamp=timestamp)
+
+    # update timestamp
+    update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
 
 
 def verify_msdocs_site(target_site):
@@ -89,17 +114,10 @@ def verify_github_site(target_site):
 
 
 def verify_rss_site(target_site):
-    # get latest timestamp
-    query_kwargs = {
-        'IndexName': 'SiteData',
-        'Limit': 1,
-        'KeyConditionExpression': Key('PartitionKey').eq(target_site["PartitionKey"]),
-        'ScanIndexForward': False
-    }
-    last_modifed_timestamp = int(table.query(**query_kwargs)['Items'][0]['timestamp'])
-    last_modifed_dt = dt.utcfromtimestamp(last_modifed_timestamp)
+    last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
 
     # parse rss
+    timestamp = int(time.time())
     d = feedparser.parse(target_site['url'])
     for entry in d.entries:
         pubdate_dt = None
@@ -116,26 +134,24 @@ def verify_rss_site(target_site):
             hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
             print(f"push {entry['link']}")
-            update_dynammodb(target_site, entry['link'], int(time.time()), hash_result)
+            update_dynammodb(SiteId=target_site["PartitionKey"],
+                             hash_result=hash_result,
+                             url=entry['link'],
+                             timestamp=timestamp)
 
-
-def get_target_site_list():
-    scan_kwargs = {
-        'FilterExpression': Key('is_watch').eq(True),
-    }
-    target_sites = table.scan(**scan_kwargs)
-
-    return target_sites['Items']
+    # update timestamp
+    update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
 
 
 def lambda_handler(event, context):
 
-    for target_site in get_target_site_list():
+    for Record in event['Records']:
+        target_site = json.loads(Record["body"])
         logger.info(f'site: {target_site["PartitionKey"]}')
 
         if target_site['type'] == "web":
             _ = verify_web_site(target_site=target_site)
-        elif target_site['type'] == "msdocs":
-            _ = verify_msdocs_site(target_site=target_site)
+            #elif target_site['type'] == "msdocs":
+            #    _ = verify_msdocs_site(target_site=target_site)
         elif target_site['type'] == "rss":
             _ = verify_rss_site(target_site=target_site)

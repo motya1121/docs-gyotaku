@@ -99,7 +99,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       MemorySize: 128
       Timeout: 180
-      Role: !GetAtt DocsGyotakuWatcherRole.Arn
+      Role: !GetAtt DocsGyotakuWatcherTriggerRole.Arn
       Runtime: python3.9
       Code:
         ZipFile: |
@@ -107,6 +107,7 @@ Resources:
       Environment:
         Variables:
           DDBTablename: !Ref DDBTable
+          SQSUrl: !GetAtt DocsGyotakuWatcherQueue.QueueUrl
   DocsGyotakuWatcherTriggerVersion:
     Type: AWS::Lambda::Version
     Properties:
