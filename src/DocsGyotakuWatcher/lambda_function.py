@@ -60,10 +60,6 @@ def verify_web_site(target_site):
     result = requests.get(target_site['url'])
     hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-    # TODO: If format is specified
-    # soup = BeautifulSoup(esult.text, "html.parser")
-    # print(soup.h1)
-
     print(f"latest hash {target_site['latest_data']['SortKey']}")
     if hash_result == target_site['latest_data']['SortKey']:
         pass
@@ -77,24 +73,14 @@ def verify_web_site(target_site):
     update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
 
 
-def verify_msdocs_site(target_site):
-    pass
-
-
 def verify_github_site(target_site):
     # https://qiita.com/nannany_hey/items/23f847e0a331da52ed77
     # https://api.github.com/repos/motya1121/web-update-test/commits
+    # https://api.github.com/repos/motya1121/web-update-test/commits/deveropment
 
-    # get latest timestamp
-    query_kwargs = {
-        'IndexName': 'SiteData',
-        'Limit': 1,
-        'KeyConditionExpression': Key('PartitionKey').eq(target_site["PartitionKey"]),
-        'ScanIndexForward': False
-    }
-    last_modifed_timestamp = int(table.query(**query_kwargs)['Items'][0]['timestamp'])
-    last_modifed_dt = dt.utcfromtimestamp(last_modifed_timestamp)
+    last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
 
+    timestamp = int(time.time())
     url = "https://api.github.com/repos/{0[owner]}/{0[repo]}/commits?path={0[path]}".format(target_site['property'])
     result = requests.get(url=url)
     commits_data = json.loads(result.text)
@@ -108,9 +94,14 @@ def verify_github_site(target_site):
         result = requests.get(commit_d['url'])
         hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-        update_dynammodb(target_site, commit_d['html_url'], int(time.time()), hash_result)
+        print(f"push {commit_d['html_url']}")
+        update_dynammodb(SiteId=target_site["PartitionKey"],
+                         hash_result=hash_result,
+                         url=commit_d['html_url'],
+                         timestamp=timestamp)
 
-    pass
+    # update timestamp
+    update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
 
 
 def verify_rss_site(target_site):
@@ -151,7 +142,7 @@ def lambda_handler(event, context):
 
         if target_site['type'] == "web":
             _ = verify_web_site(target_site=target_site)
-            #elif target_site['type'] == "msdocs":
-            #    _ = verify_msdocs_site(target_site=target_site)
+        elif target_site['type'] == "github":
+            _ = verify_github_site(target_site=target_site)
         elif target_site['type'] == "rss":
             _ = verify_rss_site(target_site=target_site)
