@@ -13,6 +13,9 @@ Parameters:
   EmailReceivers:
     Description: Comma separated email addresses
     Type: String
+  DocsGyotakuWatcherQueueName:
+    Type: String
+    Description: DocsGyotakuWatcherQueueName
 
 Resources:
   # Event Rule
@@ -20,25 +23,39 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       EventBusName: default
-      Name: docs-gyotaku-watcher
+      Name: docs-gyotaku-watcher-triger
       ScheduleExpression: 'rate(1 hour)'
       Targets:
-        - Arn: !GetAtt DocsGyotakuWatcher.Arn
-          Id: docs-gyotaku-watcher
+        - Arn: !GetAtt DocsGyotakuWatcherTrigger.Arn
+          Id: docs-gyotaku-watcher-trigger
   PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
       Action: 'lambda:InvokeFunction'
-      FunctionName: !Ref DocsGyotakuWatcher
+      FunctionName: !Ref DocsGyotakuWatcherTrigger
       Principal: 'events.amazonaws.com'
       SourceArn: !GetAtt EventRules.Arn
 
+  # SQS
+  DocsGyotakuWatcherQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref DocsGyotakuWatcherQueueName
+      VisibilityTimeout: 180
+  DocsGyotakuWatcherSQSTriger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt DocsGyotakuWatcherQueue.Arn
+      FunctionName: !Ref DocsGyotakuWatcher
+
   # Docs Watcher
-  DocsGyotakuWatcherRole:
+  DocsGyotakuWatcherTriggerRole:
     Type: AWS::IAM::Role
     Properties:
       Path: /
-      RoleName: docs-gyotaku-watcher-role
+      RoleName: docs-gyotaku-watcher-trigger-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -59,8 +76,77 @@ Resources:
                 Action:
                   - 'dynamodb:Scan'
                   - 'dynamodb:Query'
+                Resource:
+                  - !Join
+                    - ''
+                    - - !GetAtt DDBTable.Arn
+                      - '/*'
+                  - !GetAtt DDBTable.Arn
+        - PolicyName: SQS
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sqs:SendMessage'
+                Resource:
+                  - !GetAtt DocsGyotakuWatcherQueue.Arn
+  DocsGyotakuWatcherTrigger:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: checks if the dosument has been updated.
+      FunctionName: docs-gyotaku-watcher-trigger
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Timeout: 180
+      Role: !GetAtt DocsGyotakuWatcherTriggerRole.Arn
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          exports.hundler = function(event, context) {}
+      Environment:
+        Variables:
+          DDBTablename: !Ref DDBTable
+          SQSUrl: !GetAtt DocsGyotakuWatcherQueue.QueueUrl
+  DocsGyotakuWatcherTriggerVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: v1
+      FunctionName: !Ref DocsGyotakuWatcherTrigger
+  DocsGyotakuWatcherTriggerAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref DocsGyotakuWatcherTrigger
+      FunctionVersion: !GetAtt DocsGyotakuWatcherTriggerVersion.Version
+      Name: prod
+
+  # Docs Watcher
+  DocsGyotakuWatcherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: docs-gyotaku-watcher-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: DynamoDB
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
                   - 'dynamodb:Updateitem'
-                Resource: 
+                Resource:
                   - !Join
                     - ''
                     - - !GetAtt DDBTable.Arn

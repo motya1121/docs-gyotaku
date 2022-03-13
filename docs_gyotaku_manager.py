@@ -37,17 +37,30 @@ def exist_site_id(siteId: str):
         return True
 
 
-def verity_already_watched(url):
+def verity_already_watched(url, property: None):
     dynamodb = session.resource('dynamodb')
     table = dynamodb.Table('docs-gyotaku')
     scan_kwargs = {
-        'FilterExpression': Key('url').eq(url),
+        'FilterExpression': Key('url').eq(url) & Key('SortKey').begins_with('site-'),
     }
     responses = table.scan(**scan_kwargs)
     if responses['Count'] == 0:
         return False
-    else:
-        return True
+
+    for response in responses['Items']:
+        if 'property' in response.keys() and property is not None:
+            if len(response['property'].keys()) != len(property.keys()):
+                return False
+
+            for key, value in response['property'].items():
+                if key in property.keys() and property[key] == value:
+                    pass
+                elif key not in property.keys():
+                    return False
+                else:
+                    return False
+
+    return True
 
 
 def generate_user_id(mail_address):
@@ -126,7 +139,7 @@ def site_add(args):
 
     for insert_data in insert_datas:
         # verify already wached
-        if verity_already_watched(insert_data['url']) is True:
+        if verity_already_watched(insert_data['url'], insert_data['property']) is True:
             print(f'[INFO] "{insert_data["url"]}" is already wached')
             continue
 
@@ -263,7 +276,11 @@ def gyotaku_list(args):
                 'ScanIndexForward': False,
                 'Limit': 2
             }
-            site_hash = table.query(**query_kwargs)['Items'][0]['SortKey']
+            # 初回取得が完了していない場合
+            site_hash_responses = table.query(**query_kwargs)
+            if site_hash_responses['Count'] == 0:
+                continue
+            site_hash = site_hash_responses['Items'][0]['SortKey']
 
             query_kwargs = {
                 'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(site_hash),
