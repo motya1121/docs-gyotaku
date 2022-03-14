@@ -7,14 +7,26 @@ import hashlib
 import time
 import logging
 import feedparser
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 import json
+from decimal import Decimal
 
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 DDB_TABLE_NAME = os.environ['DDBTablename']
 db_session = boto3.Session(region_name='ap-northeast-1')
 dynamodb = db_session.resource('dynamodb')
 table = dynamodb.Table(DDB_TABLE_NAME)
+log_info = {"siteId": "", "type": "", "last_modifed_dt": 0, "new_timestamp_dt": 0, "is_update": False}
+
+
+def json_serial(obj):
+    if isinstance(obj, (dt)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return int(obj)
+
+    raise TypeError("Type %s not serializable" % type(obj))
 
 
 def update_dynammodb(SiteId, hash_result, url, timestamp):
@@ -34,7 +46,6 @@ def update_dynammodb(SiteId, hash_result, url, timestamp):
         }
     }
     table.update_item(**option)
-    logger.info(f'site: {SiteId} updated(SortKey: {hash_result})')
 
 
 def update_latest_timestamp(SiteId, timestamp):
@@ -52,7 +63,6 @@ def update_latest_timestamp(SiteId, timestamp):
         }
     }
     table.update_item(**option)
-    logger.info(f'site: {SiteId} updated(latest timestamp)')
 
 
 def verify_web_site(target_site):
@@ -60,7 +70,6 @@ def verify_web_site(target_site):
     result = requests.get(target_site['url'])
     hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-    print(f"latest hash {target_site['latest_data']['SortKey']}")
     if hash_result == target_site['latest_data']['SortKey']:
         pass
     else:
@@ -69,8 +78,16 @@ def verify_web_site(target_site):
                          url=target_site['url'],
                          timestamp=timestamp)
 
+        log_info['is_update'] = True
+        log_info['latest_hash_result'] = target_site['latest_data']['SortKey']
+        log_info['hash_result'] = hash_result
+        log_info['url'] = target_site['url']
+
     # update timestamp
     update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
+
+    log_info['last_modifed_dt'] = dt.utcfromtimestamp(target_site["timestamp"])
+    log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
 
 def verify_github_site(target_site):
@@ -94,14 +111,20 @@ def verify_github_site(target_site):
         result = requests.get(commit_d['url'])
         hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-        print(f"push {commit_d['html_url']}")
         update_dynammodb(SiteId=target_site["PartitionKey"],
                          hash_result=hash_result,
                          url=commit_d['html_url'],
                          timestamp=timestamp)
 
+        log_info['is_update'] = True
+        log_info['hash_result'] = hash_result
+        log_info['url'] = commit_d['html_url']
+
     # update timestamp
     update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
+
+    log_info['last_modifed_dt'] = last_modifed_dt
+    log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
 
 def verify_rss_site(target_site):
@@ -124,21 +147,28 @@ def verify_rss_site(target_site):
             result = requests.get(entry['link'])
             hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-            print(f"push {entry['link']}")
             update_dynammodb(SiteId=target_site["PartitionKey"],
                              hash_result=hash_result,
                              url=entry['link'],
                              timestamp=timestamp)
 
+            log_info['is_update'] = True
+            log_info['hash_result'] = hash_result
+            log_info['url'] = entry['link']
+
     # update timestamp
     update_latest_timestamp(SiteId=target_site["PartitionKey"], timestamp=timestamp)
+
+    log_info['last_modifed_dt'] = last_modifed_dt
+    log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
 
 def lambda_handler(event, context):
 
     for Record in event['Records']:
         target_site = json.loads(Record["body"])
-        logger.info(f'site: {target_site["PartitionKey"]}')
+        log_info["siteId"] = target_site["PartitionKey"]
+        log_info['type'] = target_site["type"]
 
         if target_site['type'] == "web":
             _ = verify_web_site(target_site=target_site)
@@ -146,3 +176,5 @@ def lambda_handler(event, context):
             _ = verify_github_site(target_site=target_site)
         elif target_site['type'] == "rss":
             _ = verify_rss_site(target_site=target_site)
+
+        logger.info(json.dumps(log_info, default=json_serial))
