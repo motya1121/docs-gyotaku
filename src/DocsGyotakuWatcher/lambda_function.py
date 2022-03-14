@@ -17,7 +17,6 @@ DDB_TABLE_NAME = os.environ['DDBTablename']
 db_session = boto3.Session(region_name='ap-northeast-1')
 dynamodb = db_session.resource('dynamodb')
 table = dynamodb.Table(DDB_TABLE_NAME)
-log_info = {"siteId": "", "type": "", "last_modifed_dt": 0, "new_timestamp_dt": 0, "is_update": False}
 
 
 def json_serial(obj):
@@ -66,6 +65,15 @@ def update_latest_timestamp(SiteId, timestamp):
 
 
 def verify_web_site(target_site):
+    log_info = {
+        "siteId": target_site["PartitionKey"],
+        "type": target_site["type"],
+        "last_modifed_dt": 0,
+        "new_timestamp_dt": 0,
+        "is_update": False,
+        "additional_info": {}
+    }
+
     timestamp = int(time.time())
     result = requests.get(target_site['url'])
     hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
@@ -89,12 +97,22 @@ def verify_web_site(target_site):
     log_info['last_modifed_dt'] = dt.utcfromtimestamp(target_site["timestamp"])
     log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
+    return log_info
+
 
 def verify_github_site(target_site):
     # https://qiita.com/nannany_hey/items/23f847e0a331da52ed77
     # https://api.github.com/repos/motya1121/web-update-test/commits
     # https://api.github.com/repos/motya1121/web-update-test/commits/deveropment
 
+    log_info = {
+        "siteId": target_site["PartitionKey"],
+        "type": target_site["type"],
+        "last_modifed_dt": 0,
+        "new_timestamp_dt": 0,
+        "is_update": False,
+        "additional_info": {}
+    }
     last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
 
     timestamp = int(time.time())
@@ -126,8 +144,27 @@ def verify_github_site(target_site):
     log_info['last_modifed_dt'] = last_modifed_dt
     log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
+    return log_info
+
+
+def verify_rss_site_dropbox(result_text):
+    soup = BeautifulSoup(result_text, "html.parser")
+    topicsindex = soup.find('div', attrs={'class': 'layout-content status status-incident'})
+    hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
+
+    return hash_result
+
 
 def verify_rss_site(target_site):
+    log_info = {
+        "siteId": target_site["PartitionKey"],
+        "type": target_site["type"],
+        "last_modifed_dt": 0,
+        "new_timestamp_dt": 0,
+        "rss_url": target_site['url'],
+        "is_update": False,
+        "additional_info": {}
+    }
     last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
 
     # parse rss
@@ -145,7 +182,11 @@ def verify_rss_site(target_site):
         if last_modifed_dt < pubdate_dt:
             # get hash
             result = requests.get(entry['link'])
-            hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
+            if target_site['url'] == "https://dropboxpublic.statuspage.io/history.rss":
+                log_info['additional_info']['type'] = 'dropbox'
+                hash_result = verify_rss_site_dropbox(result_text=result.text)
+            else:
+                hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
             update_dynammodb(SiteId=target_site["PartitionKey"],
                              hash_result=hash_result,
@@ -162,19 +203,19 @@ def verify_rss_site(target_site):
     log_info['last_modifed_dt'] = last_modifed_dt
     log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
 
+    return log_info
+
 
 def lambda_handler(event, context):
 
     for Record in event['Records']:
         target_site = json.loads(Record["body"])
-        log_info["siteId"] = target_site["PartitionKey"]
-        log_info['type'] = target_site["type"]
 
         if target_site['type'] == "web":
-            _ = verify_web_site(target_site=target_site)
+            log_info = verify_web_site(target_site=target_site)
         elif target_site['type'] == "github":
-            _ = verify_github_site(target_site=target_site)
+            log_info = verify_github_site(target_site=target_site)
         elif target_site['type'] == "rss":
-            _ = verify_rss_site(target_site=target_site)
+            log_info = verify_rss_site(target_site=target_site)
 
         logger.info(json.dumps(log_info, default=json_serial))
