@@ -4,7 +4,7 @@ from boto3.dynamodb.conditions import Key
 import logging
 import json
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date, datetime as dt, timedelta
 
 logger = logging.getLogger()
 DDB_TABLE_NAME = os.environ['DDBTablename']
@@ -16,7 +16,7 @@ sqs_client = boto3.client("sqs")
 
 
 def json_serial(obj):
-    if isinstance(obj, (datetime, date)):
+    if isinstance(obj, (dt, date)):
         return obj.isoformat()
     if isinstance(obj, Decimal):
         return int(obj)
@@ -24,8 +24,8 @@ def json_serial(obj):
     raise TypeError("Type %s not serializable" % type(obj))
 
 
-def get_latest_sortKey(target_site):
-    # get latest sortkey
+def get_latest_data(target_site):
+    # get latest data
     query_kwargs = {
         'IndexName': 'SiteData',
         'Limit': 2,
@@ -34,11 +34,13 @@ def get_latest_sortKey(target_site):
     }
     responses = table.query(**query_kwargs)['Items']
     latest_sortKey = ""
+    latest_timestamp = dt.timestamp(dt.utcnow() - timedelta(days=1))
     for response in responses:
         if response["PartitionKey"] != response["SortKey"]:
             latest_sortKey = response["SortKey"]
+            latest_timestamp = response["timestamp"]
 
-    return latest_sortKey
+    return latest_sortKey, latest_timestamp
 
 
 def get_target_site_list():
@@ -47,8 +49,9 @@ def get_target_site_list():
     }
     target_sites = table.scan(**scan_kwargs)['Items']
     for target_site in target_sites:
-        latest_sortKey = get_latest_sortKey(target_site)
+        latest_sortKey, latest_timestamp = get_latest_data(target_site)
         target_site["latest_data"] = {"SortKey": latest_sortKey}
+        target_site["timestamp"] = latest_timestamp
 
     return target_sites
 
