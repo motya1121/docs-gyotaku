@@ -1,7 +1,7 @@
 #!/bin/bash
 
+. ./conf.txt
 LAMBDA_FUNC_NAME="docs-gyotaku-creator"
-profile="main"
 
 # DocsGyotakuCreator
 cd src/DocsGyotakuCreator
