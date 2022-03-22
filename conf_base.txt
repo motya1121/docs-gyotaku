@@ -1,3 +1,5 @@
 profile=""
 notifyType=""
 SSO_PRODILE=""
+S3_BUCKET_NAME=""
+DDB_TABLE_NAME = ""
