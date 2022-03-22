@@ -50,7 +50,7 @@ Resources:
       EventSourceArn: !GetAtt DocsGyotakuWatcherQueue.Arn
       FunctionName: !Ref DocsGyotakuWatcher
 
-  # Docs Watcher
+  # Docs Watcher Trigger
   DocsGyotakuWatcherTriggerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -211,6 +211,9 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 3
         WriteCapacityUnits: 3
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
       StreamSpecification:
         StreamViewType: NEW_IMAGE
   DynamoDBStreamToCreator:
