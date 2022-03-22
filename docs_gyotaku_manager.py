@@ -3,14 +3,43 @@ import os
 import json
 import random
 import time
+import re
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime as dt
 from urllib.parse import urlparse
 
-SSO_PRODILE = "main"
-S3_BUCKET_NAME = "docs-gyotaku-532648218247"
-DDB_TABLE_NAME = "docs-gyotaku"
+SSO_PRODILE = None
+S3_BUCKET_NAME = None
+DDB_TABLE_NAME = None
+with open('conf.txt', 'r') as f:
+    for line in f.readlines():
+        line = line.replace('\n', '')
+        if line.find('SSO_PRODILE') != -1:
+            if line.find('"') != -1:
+                p = r'\"(.*)\"'
+                r = re.findall(p, line)
+                SSO_PRODILE = r[0]
+            else:
+                SSO_PRODILE = line[line.find('=') + 1:]
+        if line.find('S3_BUCKET_NAME') != -1:
+            if line.find('"') != -1:
+                p = r'\"(.*)\"'
+                r = re.findall(p, line)
+                S3_BUCKET_NAME = r[0]
+            else:
+                S3_BUCKET_NAME = line[line.find('=') + 1:]
+        if line.find('DDB_TABLE_NAME') != -1:
+            if line.find('"') != -1:
+                p = r'\"(.*)\"'
+                r = re.findall(p, line)
+                DDB_TABLE_NAME = r[0]
+            else:
+                DDB_TABLE_NAME = line[line.find('=') + 1:]
+
+if SSO_PRODILE is None or S3_BUCKET_NAME is None or DDB_TABLE_NAME is None:
+    print('設定ファイルに不備があります。')
+    exit()
 
 session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
 
@@ -460,4 +489,9 @@ if __name__ == "__main__":
     if hasattr(args, 'handler'):
         args.handler(args)
     else:
+        print('====config====')
+        print(f'SSO_PRODILE:    {SSO_PRODILE}')
+        print(f'S3_BUCKET_NAME: {S3_BUCKET_NAME}')
+        print(f'DDB_TABLE_NAME: {DDB_TABLE_NAME}')
+        print('====config====\n')
         parser.print_help()

@@ -1,9 +1,8 @@
 #!/bin/bash
 
+. ./conf.txt
 LAMBDA_FUNC_NAME="docs-gyotaku-notifier"
-notifyType="slack"
 DIR_NAME="DocsGtyotakuNotification_${notifyType}"
-profile="main"
 
 # DocsGyotakuCreator
 cd src/${DIR_NAME}

@@ -1,8 +1,8 @@
 #!/bin/bash
 
+. ./conf.txt
 LAMBDA_FUNC_NAME="docs-gyotaku-watcher"
 DIR_NAME="DocsGyotakuWatcher"
-profile="main"
 
 # DocsGyotakuCreator
 cd src/${DIR_NAME}

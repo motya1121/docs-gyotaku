@@ -102,8 +102,6 @@ def verify_web_site(target_site):
 
 def verify_github_site(target_site):
     # https://qiita.com/nannany_hey/items/23f847e0a331da52ed77
-    # https://api.github.com/repos/motya1121/web-update-test/commits
-    # https://api.github.com/repos/motya1121/web-update-test/commits/deveropment
 
     log_info = {
         "siteId": target_site["PartitionKey"],

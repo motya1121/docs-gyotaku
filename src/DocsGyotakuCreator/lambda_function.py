@@ -35,6 +35,8 @@ def lambda_handler(event, context):
         # Exclusion add and update website
         if Record['dynamodb']['Keys']['PartitionKey']['S'] == Record['dynamodb']['Keys']['SortKey']['S']:
             continue
+        if Record['dynamodb']['Keys']['PartitionKey']['S'].find('user-') != -1:
+            continue
         if 'NewImage' not in Record['dynamodb'].keys():
             continue
 
