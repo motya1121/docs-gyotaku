@@ -4,17 +4,34 @@ import os
 import json
 import boto3
 from boto3.dynamodb.conditions import Key
+from datetime import datetime as dt
+from decimal import Decimal
 import logging
 
 logger = logging.getLogger()
-
+logger.setLevel(logging.INFO)
 S3_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
 DDB_TABLE_NAME = os.environ['DDBTablename']
 
 
+def json_serial(obj):
+    if isinstance(obj, (dt)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return int(obj)
+
+    raise TypeError("Type %s not serializable" % type(obj))
+
+
 def lambda_handler(event, context):
-    print(json.dumps(event))
     for Record in event['Records']:
+        log_info = {
+            "PartitionKey": Record['dynamodb']['Keys']['PartitionKey']['S'],
+            "SortKey": Record['dynamodb']['Keys']['SortKey']['S'],
+            "eventName": Record['eventName']
+        }
+        logger.info(json.dumps(log_info, default=json_serial))
+
         # Exclusion add and update website
         if Record['dynamodb']['Keys']['PartitionKey']['S'] == Record['dynamodb']['Keys']['SortKey']['S']:
             continue
@@ -50,4 +67,7 @@ def lambda_handler(event, context):
 
         temp_dir.cleanup()
 
-        logger.info(f'site: {WebSiteId},  new hash: {site_hash}, timestamp: {timestamp}')
+        log_info['siteId'] = WebSiteId
+        log_info['siteHash'] = site_hash
+        log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
+        logger.info(json.dumps(log_info, default=json_serial))

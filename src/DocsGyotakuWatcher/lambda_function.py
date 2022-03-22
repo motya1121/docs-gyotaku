@@ -86,7 +86,6 @@ def verify_web_site(target_site):
                          url=target_site['url'],
                          timestamp=timestamp)
 
-
         log_info['is_update'] = True
         log_info['latest_hash_result'] = target_site['latest_data']['SortKey']
         log_info['hash_result'] = hash_result
@@ -211,6 +210,7 @@ def lambda_handler(event, context):
 
     for Record in event['Records']:
         target_site = json.loads(Record["body"])
+        logger.info(json.dumps({"siteId": target_site['PartitionKey'], "url": target_site['url']}, default=json_serial))
 
         if target_site['type'] == "web":
             log_info = verify_web_site(target_site=target_site)
