@@ -7,13 +7,23 @@ import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime as dt, timedelta
+from decimal import Decimal
 import requests
 
 logger = logging.getLogger()
-
+logger.setLevel(logging.INFO)
 DDB_TABLE_NAME = os.environ['DDBTablename']
 SLACK_TOKEN = os.environ['SLACK_TOKEN']
 AWS_REAGION = os.getenv("AWS_DEFAULT_REGION")
+
+
+def json_serial(obj):
+    if isinstance(obj, (dt)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return int(obj)
+
+    raise TypeError("Type %s not serializable" % type(obj))
 
 
 def get_target_site(siteId):
@@ -25,6 +35,13 @@ def get_target_site(siteId):
 
 def lambda_handler(event, context):
     for record in event['Records']:
+        log_info = {
+            "PartitionKey": record['dynamodb']['Keys']['PartitionKey']['S'],
+            "SortKey": record['dynamodb']['Keys']['SortKey']['S'],
+            "eventName": record['eventName'],
+        }
+        logger.info(json.dumps(log_info, default=json_serial))
+
         if record['eventName'] != 'INSERT':
             continue
         site_data = record['dynamodb']['NewImage']
