@@ -147,6 +147,27 @@ def site_list(args):
 
 def site_add(args):
     insert_datas = []
+
+    if args.template is True:
+        template = [{
+            "url": "url",
+            "type": "web or rss or Github or msdocs",
+            "is_archive": True,
+            "is_watch": True,
+            "property": {},
+            "tags": [],
+            "title": "title"
+        }]
+        f_name = 'docs-gyotaku-template'
+        while True:
+            if os.path.isfile(f'{f_name}.json') is False:
+                break
+            f_name = f'{f_name}_cp'
+        with open(f'{f_name}.json', 'w') as f:
+            json.dump(template, f, indent=4)
+        print(f'create "{f_name}"')
+        return
+
     if args.file is not None:
         print('file')
 
@@ -402,6 +423,12 @@ if __name__ == "__main__":
         '-u',
         '--url',
         help='指定したWebサイトのURLを追加',
+    )
+    parser_site_add.add_argument(
+        '-t',
+        '--template',
+        action='store_true',
+        help='jsonファイルのテンプレートを生成',
     )
     parser_site_add.set_defaults(handler=site_add)
 
