@@ -101,7 +101,6 @@ def verify_web_site(target_site):
 
 
 def verify_github_site(target_site):
-    # https://qiita.com/nannany_hey/items/23f847e0a331da52ed77
 
     log_info = {
         "siteId": target_site["PartitionKey"],
@@ -112,6 +111,11 @@ def verify_github_site(target_site):
         "additional_info": {}
     }
     last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
+
+    if "owner" not in target_site.keys() or "repo" not in target_site.keys() or "path" not in target_site.keys():
+        logger.error('property key Incorrect')
+        logger.info(json.dumps(log_info, default=json_serial))
+        return
 
     timestamp = int(time.time())
     url = "https://api.github.com/repos/{0[owner]}/{0[repo]}/commits?path={0[path]}".format(target_site['property'])
