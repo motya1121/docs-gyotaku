@@ -71,5 +71,5 @@ def lambda_handler(event, context):
 
         log_info['siteId'] = WebSiteId
         log_info['siteHash'] = site_hash
-        log_info['new_timestamp_dt'] = dt.fromtimestamp(timestamp)
+        log_info['new_timestamp_dt'] = dt.fromtimestamp(int(timestamp))
         logger.info(json.dumps(log_info, default=json_serial))
