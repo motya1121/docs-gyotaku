@@ -112,7 +112,8 @@ def verify_github_site(target_site):
     }
     last_modifed_dt = dt.utcfromtimestamp(target_site["timestamp"])
 
-    if "owner" not in target_site.keys() or "repo" not in target_site.keys() or "path" not in target_site.keys():
+    property_keys = target_site['property'].keys()
+    if "owner" not in property_keys or "repo" not in property_keys or "path" not in property_keys:
         logger.error('property key Incorrect')
         logger.info(json.dumps(log_info, default=json_serial))
         return
