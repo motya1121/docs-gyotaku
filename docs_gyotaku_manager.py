@@ -365,6 +365,17 @@ def gyotaku_get(args):
         bucket.download_file(o.get('Key'), f"{responses['Items'][0]['timestamp']}/{file_name}")
 
 
+def get_user_data(userId: str):
+    userId = args.userId
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    scan_kwargs = {
+        'FilterExpression': Key('PartitionKey').eq(userId),
+    }
+    responses = table.scan(**scan_kwargs)
+    return responses['Items']
+
+
 def user_add(args):
     email_address = args.email
     if verity_already_submitted(mail_address=email_address) is True:
@@ -382,6 +393,37 @@ def user_add(args):
 
     client = session.client('ses')
     _ = client.verify_email_identity(EmailAddress=email_address)
+
+
+def user_show(args):
+    Items = get_user_data(args.userId)
+
+    print('userId          |Email Address              |tags |')
+    for result in Items:
+        print(f'{result["PartitionKey"]} |{result["SortKey"]}   | {" ".join(result["tags"])} |')
+
+
+def user_tags(args):
+    Item = get_user_data(args.userId)[0]
+
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    update_kwargs = {
+        'Key': {
+            'PartitionKey': Item['PartitionKey'],
+            'SortKey': Item['SortKey']
+        },
+        'UpdateExpression': "set tags=:w",
+        'ExpressionAttributeValues': {
+            ':w': args.tags
+        },
+        'ReturnValues': "UPDATED_NEW"
+    }
+    response = table.update_item(**update_kwargs)
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        print(f'success, new tag is: {", ".join(args.tags)}')
+    else:
+        print('failed')
 
 
 def test(args):
@@ -493,6 +535,15 @@ if __name__ == "__main__":
     parser_user = subparsers.add_parser('user', help='see `user -h`')
     parser_user_subparser = parser_user.add_subparsers()
 
+    # user-show
+    parser_user_show = parser_user_subparser.add_parser('show', help='see `user show -h`')
+    parser_user_show.add_argument(
+        '--userId',
+        required=True,
+        help='UserId',
+    )
+    parser_user_show.set_defaults(handler=user_show)
+
     # user-add
     parser_user_add = parser_user_subparser.add_parser('add', help='see `user add -h`')
     parser_user_add.add_argument(
@@ -507,6 +558,21 @@ if __name__ == "__main__":
         help='document tags. ex) --tags test all',
     )
     parser_user_add.set_defaults(handler=user_add)
+
+    # user-tag
+    parser_user_tags = parser_user_subparser.add_parser('tags', help='see `user tag -h`')
+    parser_user_tags.add_argument(
+        '--userId',
+        required=True,
+        help='UserId',
+    )
+    parser_user_tags.add_argument(
+        '--tags',
+        required=True,
+        nargs='*',
+        help='document tags. ex) --tags test all',
+    )
+    parser_user_tags.set_defaults(handler=user_tags)
 
     # test
     parser_db = subparsers.add_parser('test', help='see `test -h`')
