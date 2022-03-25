@@ -121,20 +121,42 @@ def verify_github_site(target_site):
     timestamp = int(time.time())
     url = "https://api.github.com/repos/{0[owner]}/{0[repo]}/commits?path={0[path]}".format(target_site['property'])
     result = requests.get(url=url)
-    commits_data = json.loads(result.text)
+    commit_list = json.loads(result.text)
 
-    for commit_d in commits_data:
+    updated_commit_list = []
+    for commit_d in commit_list:
         commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
         if commit_dt <= last_modifed_dt:
             continue
 
-        # get hash
-        result = requests.get(commit_d['url'])
+        result = requests.get(url=commit_d['url'])
+        commit_detail = json.loads(result.text)
         hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
+        commited_files = []
+        for file in commit_detail['files']:
+            commited_files.append(file['filename'])
+
+        # check same file
+        flag = False
+        for updated_commit in updated_commit_list:
+            if set(updated_commit['files']) == set(commited_files):
+                flag = True
+        if flag is False:
+            updated_commit_list.append({
+                "url": commit_d['url'],
+                "html_url": commit_d['html_url']
+                "files": commited_files,
+                "commit_dt": commit_dt,
+                "hash_result": hash_result
+            })
+
+    updated_commit_list = sorted(updated_commit_list, key=lambda x: x['commit_dt'], reverse=False)
+
+    for updated_commit in updated_commit_list:
         update_dynammodb(SiteId=target_site["PartitionKey"],
-                         hash_result=hash_result,
-                         url=commit_d['html_url'],
+                         hash_result=updated_commit['hash_result'],
+                         url=updated_commit['html_url'],
                          timestamp=timestamp)
 
         log_info['is_update'] = True
