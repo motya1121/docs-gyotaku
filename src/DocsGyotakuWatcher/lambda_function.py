@@ -145,7 +145,7 @@ def verify_github_site(target_site):
         if flag is False:
             updated_commit_list.append({
                 "url": commit_d['url'],
-                "html_url": commit_d['html_url']
+                "html_url": commit_d['html_url'],
                 "files": commited_files,
                 "commit_dt": commit_dt,
                 "hash_result": hash_result
