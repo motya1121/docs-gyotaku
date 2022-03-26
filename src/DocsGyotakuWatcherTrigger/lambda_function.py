@@ -48,12 +48,22 @@ def get_target_site_list():
         'FilterExpression': Key('is_watch').eq(True),
     }
     target_sites = table.scan(**scan_kwargs)['Items']
+    ret_target_sites = []
     for target_site in target_sites:
+        # If the set duration_sec has not elapsed, skip
+        if 'property' in target_site.keys() and 'duration_sec' in target_site['property'].keys():
+            befor_watch_timestamp = target_site['timestamp']
+            next_watch_timestamp = int(befor_watch_timestamp) + int(target_site['property']['duration_sec'])
+            now_timestamp = dt.timestamp(dt.utcnow())
+            if now_timestamp < next_watch_timestamp:
+                continue
+
         latest_sortKey, latest_timestamp = get_latest_data(target_site)
         target_site["latest_data"] = {"SortKey": latest_sortKey}
         target_site["timestamp"] = latest_timestamp
+        ret_target_sites.append(target_site)
 
-    return target_sites
+    return ret_target_sites
 
 
 def lambda_handler(event, context):

@@ -35,3 +35,8 @@ url: サイトのURL
 PartitionKey: user-@@@@@@@@@@
 SortKey: メアド
 tags: サイトのタグ
+
+## タイムスタンプの計算
+
+https://url-c.com/tc/
+
