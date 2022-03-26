@@ -130,26 +130,17 @@ def verify_github_site(target_site):
             continue
 
         result = requests.get(url=commit_d['url'])
-        commit_detail = json.loads(result.text)
         hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
-        commited_files = []
-        for file in commit_detail['files']:
-            commited_files.append(file['filename'])
+        updated_commit_list.append({
+            "url": commit_d['url'],
+            "html_url": commit_d['html_url'],
+            "commit_dt": commit_dt,
+            "hash_result": hash_result
+        })
 
-        # check same file
-        flag = False
-        for updated_commit in updated_commit_list:
-            if set(updated_commit['files']) == set(commited_files):
-                flag = True
-        if flag is False:
-            updated_commit_list.append({
-                "url": commit_d['url'],
-                "html_url": commit_d['html_url'],
-                "files": commited_files,
-                "commit_dt": commit_dt,
-                "hash_result": hash_result
-            })
+        if 'is_aggregation' in property_keys.keys() and property_keys['is_aggregation'] is True:
+            break
 
     updated_commit_list = sorted(updated_commit_list, key=lambda x: x['commit_dt'], reverse=False)
 
