@@ -139,7 +139,7 @@ def verify_github_site(target_site):
             "hash_result": hash_result
         })
 
-        if 'is_aggregation' in property_keys.keys() and property_keys['is_aggregation'] is True:
+        if 'is_aggregation' in property_keys and target_site['property']['is_aggregation'] is True:
             break
 
     updated_commit_list = sorted(updated_commit_list, key=lambda x: x['commit_dt'], reverse=False)
