@@ -51,7 +51,8 @@ def get_target_site_list():
     ret_target_sites = []
     for target_site in target_sites:
         # If the set duration_sec has not elapsed, skip
-        if 'property' in target_site.keys() and 'duration_sec' in target_site['property'].keys():
+        if 'property' in target_site.keys(
+        ) and target_site['property'] is not None and 'duration_sec' in target_site['property'].keys():
             befor_watch_timestamp = target_site['timestamp']
             next_watch_timestamp = int(befor_watch_timestamp) + int(target_site['property']['duration_sec'])
             now_timestamp = dt.timestamp(dt.utcnow())
