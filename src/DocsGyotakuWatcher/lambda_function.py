@@ -64,6 +64,14 @@ def update_latest_timestamp(SiteId, timestamp):
     table.update_item(**option)
 
 
+def verify_rss_site_prismacloud(result_text):
+    soup = BeautifulSoup(result_text, "html.parser")
+    topicsindex = soup.find('div', attrs={'class': 'featuredTilesPar parsys'})
+    hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
+
+    return hash_result
+
+
 def verify_web_site(target_site):
     log_info = {
         "siteId": target_site["PartitionKey"],
@@ -76,7 +84,11 @@ def verify_web_site(target_site):
 
     timestamp = int(time.time())
     result = requests.get(target_site['url'])
-    hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
+    if target_site['url'] == "https://docs.paloaltonetworks.com/prisma/prisma-cloud":
+        log_info['additional_info']['type'] = 'prisma cloud'
+        hash_result = verify_rss_site_prismacloud(result_text=result.text)
+    else:
+        hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
     if hash_result == target_site['latest_data']['SortKey']:
         pass
