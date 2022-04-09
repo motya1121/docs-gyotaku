@@ -175,7 +175,7 @@ def verify_github_site(target_site):
     return log_info
 
 
-def verify_rss_site_dropbox(result_text):
+def verify_rss_atlassian_statuspage(result_text):
     soup = BeautifulSoup(result_text, "html.parser")
     topicsindex = soup.find('div', attrs={'class': 'layout-content status status-incident'})
     hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
@@ -212,7 +212,10 @@ def verify_rss_site(target_site):
             result = requests.get(entry['link'])
             if target_site['url'] == "https://dropboxpublic.statuspage.io/history.rss":
                 log_info['additional_info']['type'] = 'dropbox'
-                hash_result = verify_rss_site_dropbox(result_text=result.text)
+                hash_result = verify_rss_atlassian_statuspage(result_text=result.text)
+            elif target_site['url'] == "https://status.lastpass.com/history.rss":
+                log_info['additional_info']['type'] = 'lastpass'
+                hash_result = verify_rss_atlassian_statuspage(result_text=result.text)
             else:
                 hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
