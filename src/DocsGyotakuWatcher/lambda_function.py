@@ -137,7 +137,10 @@ def verify_github_site(target_site):
 
     updated_commit_list = []
     for commit_d in commit_list:
-        commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
+        try:
+            commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
+        except TypeError:
+            continue
         if commit_dt <= last_modifed_dt:
             continue
 
@@ -151,7 +154,7 @@ def verify_github_site(target_site):
             "hash_result": hash_result
         })
 
-        if 'is_aggregation' in property_keys.keys() and property_keys['is_aggregation'] is True:
+        if 'is_aggregation' in property_keys and target_site['property']['is_aggregation'] is True:
             break
 
     updated_commit_list = sorted(updated_commit_list, key=lambda x: x['commit_dt'], reverse=False)
