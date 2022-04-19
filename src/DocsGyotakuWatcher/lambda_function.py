@@ -137,7 +137,10 @@ def verify_github_site(target_site):
 
     updated_commit_list = []
     for commit_d in commit_list:
-        commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
+        try:
+            commit_dt = dt.strptime(commit_d['commit']['committer']['date'], '%Y-%m-%dT%H:%M:%SZ')
+        except TypeError:
+            continue
         if commit_dt <= last_modifed_dt:
             continue
 

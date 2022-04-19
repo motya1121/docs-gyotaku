@@ -138,11 +138,11 @@ def site_list(args):
     elif args.all is True:
         print('SiteId          |is_archive |is_watch |type\t|url|')
         for result in responses['Items']:
-            print('{0[PartitionKey]} |{0[is_archive]}       |{0[is_watch]}     |{0[type]}\t|{0[url]}|'.format(result))
+            print('{0[PartitionKey]} |{0[is_archive]}       |{0[is_watch]}     |{0[type]}\t|{0[url]} |'.format(result))
     else:
         print('SiteId          |is_archive |type\t|url|')
         for result in responses['Items']:
-            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t|{0[url]}|'.format(result))
+            print('{0[PartitionKey]} |{0[is_archive]}       |{0[type]}\t|{0[url]} |'.format(result))
 
 
 def site_add(args):
