@@ -8,6 +8,7 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime as dt
 from urllib.parse import urlparse
+import difflib
 
 SSO_PRODILE = None
 S3_BUCKET_NAME = None
@@ -42,6 +43,7 @@ if SSO_PRODILE is None or S3_BUCKET_NAME is None or DDB_TABLE_NAME is None:
     exit()
 
 session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
+ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 def generate_site_id():
@@ -365,6 +367,66 @@ def gyotaku_get(args):
         bucket.download_file(o.get('Key'), f"{responses['Items'][0]['timestamp']}/{file_name}")
 
 
+def gyotaku_diff(args):
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table('docs-gyotaku')
+    siteId = args.siteId
+    target_files = []
+
+    if args.hashs is None or len(args.hashs) != 2:
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId),
+            'Limit': 3,
+            'ScanIndexForward': False,
+        }
+        responses = table.query(**query_kwargs)
+    else:
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(args.hashs[0]),
+            'Limit': 1,
+            'ScanIndexForward': False,
+        }
+        responses = table.query(**query_kwargs)
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(args.hashs[1]),
+            'Limit': 1,
+            'ScanIndexForward': False,
+        }
+        responses['Items'].extend(table.query(**query_kwargs)['Items'])
+        responses['Count'] += 1
+
+    if responses['Count'] < 2:
+        print(f'siteid:{siteId} の魚拓の数が足りません')
+        return
+
+    for response in responses['Items']:
+        if response['SortKey'] == siteId:
+            continue
+        dl_dir_path = os.path.join(ABS_PATH, 'gyotaku_datas', str(response['timestamp']))
+        os.makedirs(dl_dir_path, exist_ok=True)
+
+        s3 = session.resource('s3')
+        bucket = s3.Bucket(S3_BUCKET_NAME)
+        s3_prefix = f"ArchiveData/{siteId}/{response['timestamp']}"
+        objs = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Prefix=s3_prefix)
+        for o in objs.get('Contents'):
+            file_name = os.path.basename(o.get('Key'))
+            bucket.download_file(o.get('Key'), f"{dl_dir_path}/{file_name}")
+            if file_name.find('html') != -1:
+                target_files.append(f"{dl_dir_path}/{file_name}")
+
+    # diff
+    file1 = open(target_files[0])
+    file2 = open(target_files[1])
+    diff = difflib.Differ()
+    output_diff = diff.compare(file1.readlines(), file2.readlines())
+    for data in output_diff:
+        if data[0:1] in ['+', '-']:
+            print(data)
+    file1.close()
+    file2.close()
+
+
 def get_user_data(userId: str):
     userId = args.userId
     dynamodb = session.resource('dynamodb')
@@ -530,6 +592,21 @@ if __name__ == "__main__":
         help='gyotaku hash',
     )
     parser_gyotaku_get.set_defaults(handler=gyotaku_get)
+
+    # gyotaku-diff
+    parser_gyotaku_get = parser_gyotaku_subparser.add_parser('diff', help='魚拓を比較する')
+    parser_gyotaku_get.add_argument(
+        '-s',
+        '--siteId',
+        required=True,
+        help='Web Site Id',
+    )
+    parser_gyotaku_get.add_argument(
+        '--hashs',
+        nargs='*',
+        help='比較するハッシュ値を2つ入力',
+    )
+    parser_gyotaku_get.set_defaults(handler=gyotaku_diff)
 
     # *** user ***
     parser_user = subparsers.add_parser('user', help='see `user -h`')
