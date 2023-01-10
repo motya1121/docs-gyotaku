@@ -67,6 +67,25 @@ def update_latest_timestamp(SiteId, timestamp):
 def verify_rss_site_prismacloud(result_text):
     soup = BeautifulSoup(result_text, "html.parser")
     topicsindex = soup.find('div', attrs={'class': 'featuredTilesPar parsys'})
+    logger.info(topicsindex)
+    hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
+
+    return hash_result
+
+
+def verify_rss_site_prismacloud_releasenote(result_text):
+    soup = BeautifulSoup(result_text, "html.parser")
+    topicsindex = soup.find('div', attrs={'class': 'topic topic concept'})
+    logger.info(topicsindex)
+    hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
+
+    return hash_result
+
+
+def verify_web_site_microsoft_learn(result_text):
+    soup = BeautifulSoup(result_text, "html.parser")
+    topicsindex = soup.find('div', attrs={'id': 'main-column'})
+    logger.info(topicsindex)
     hash_result = hashlib.sha224(topicsindex.encode('utf-8')).hexdigest()
 
     return hash_result
@@ -87,6 +106,12 @@ def verify_web_site(target_site):
     if target_site['url'] == "https://docs.paloaltonetworks.com/prisma/prisma-cloud":
         log_info['additional_info']['type'] = 'prisma cloud'
         hash_result = verify_rss_site_prismacloud(result_text=result.text)
+    elif target_site[
+            'url'] == "https://docs.paloaltonetworks.com/prisma/prisma-cloud/prisma-cloud-release-notes/prisma-cloud-release-information/features-introduced-in-2022":
+        log_info['additional_info']['type'] = 'prisma cloud'
+        hash_result = verify_rss_site_prismacloud_releasenote(result_text=result.text)
+    elif target_site['url'] == "https://learn.microsoft.com/en-us/connectors/common/outbound-ip-addresses":
+        hash_result = verify_web_site_microsoft_learn(result_text=result.text)
     else:
         hash_result = hashlib.sha224(result.text.encode('utf-8')).hexdigest()
 
