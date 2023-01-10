@@ -373,12 +373,27 @@ def gyotaku_diff(args):
     siteId = args.siteId
     target_files = []
 
-    query_kwargs = {
-        'KeyConditionExpression': Key('PartitionKey').eq(siteId),
-        'Limit': 3,
-        'ScanIndexForward': False,
-    }
-    responses = table.query(**query_kwargs)
+    if args.hashs is None or len(args.hashs) != 2:
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId),
+            'Limit': 3,
+            'ScanIndexForward': False,
+        }
+        responses = table.query(**query_kwargs)
+    else:
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(args.hashs[0]),
+            'Limit': 1,
+            'ScanIndexForward': False,
+        }
+        responses = table.query(**query_kwargs)
+        query_kwargs = {
+            'KeyConditionExpression': Key('PartitionKey').eq(siteId) & Key('SortKey').eq(args.hashs[1]),
+            'Limit': 1,
+            'ScanIndexForward': False,
+        }
+        responses['Items'].extend(table.query(**query_kwargs)['Items'])
+        responses['Count'] += 1
 
     if responses['Count'] < 2:
         print(f'siteid:{siteId} の魚拓の数が足りません')
@@ -587,8 +602,9 @@ if __name__ == "__main__":
         help='Web Site Id',
     )
     parser_gyotaku_get.add_argument(
-        '--hash',
-        help='gyotaku hash',
+        '--hashs',
+        nargs='*',
+        help='比較するハッシュ値を2つ入力',
     )
     parser_gyotaku_get.set_defaults(handler=gyotaku_diff)
 
