@@ -6,6 +6,7 @@ import time
 import re
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
+from decimal import Decimal
 from datetime import datetime as dt
 from urllib.parse import urlparse
 import difflib
@@ -44,6 +45,12 @@ if SSO_PRODILE is None or S3_BUCKET_NAME is None or DDB_TABLE_NAME is None:
 
 session = boto3.Session(region_name='ap-northeast-1', profile_name=SSO_PRODILE)
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))
+
+
+def decimal_default_proc(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
 
 
 def generate_site_id():
@@ -128,13 +135,22 @@ def site_list(args):
         scan_kwargs = {
             'FilterExpression': Attr('is_watch').exists(),
         }
+    elif args.unwatch is True:
+        scan_kwargs = {
+            'FilterExpression': Attr('is_watch').eq(False),
+        }
     else:
         scan_kwargs = {
             'FilterExpression': Key('is_watch').eq(True),
         }
     responses = table.scan(**scan_kwargs)
 
-    if args.verbose is True:
+    if args.output is not None:
+        if args.output == 'json':
+            print(json.dumps(responses['Items'], default=decimal_default_proc))
+        else:
+            print('not support')
+    elif args.verbose is True:
         for result in responses['Items']:
             print(result)
     elif args.all is True:
@@ -513,6 +529,16 @@ if __name__ == "__main__":
         '--all',
         action='store_true',
         help='all site data',
+    )
+    parser_site_list.add_argument(
+        '--unwatch',
+        action='store_true',
+        help='unwatch only',
+    )
+    parser_site_list.add_argument(
+        '-o',
+        '--output',
+        help='output format',
     )
     parser_site_list.set_defaults(handler=site_list)
 
