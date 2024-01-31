@@ -32,10 +32,10 @@ jobs:
       # tools: string. Optional. A comma-separated list of analyzer tools to run. Values: 'bandit', 'binskim', 'eslint', 'templateanalyzer', 'terrascan', 'trivy'.
 
       # Upload alerts to the Security tab
-    # - name: Upload alerts to Security tab
-    #   uses: github/codeql-action/upload-sarif@v2
-    #   with:
-    #     sarif_file: ${{ steps.msdo.outputs.sarifFile }}
+    - name: Upload alerts to Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ steps.msdo.outputs.sarifFile }}
 
       # Upload alerts file as a workflow artifact
     - name: Upload alerts file as a workflow artifact
