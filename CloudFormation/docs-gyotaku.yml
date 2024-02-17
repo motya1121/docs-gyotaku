@@ -37,11 +37,19 @@ Resources:
       SourceArn: !GetAtt EventRules.Arn
 
   # SQS
+  DocsGyotakuWatcherDLQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${DocsGyotakuWatcherQueueName}-dlq'
+      VisibilityTimeout: 180
   DocsGyotakuWatcherQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Ref DocsGyotakuWatcherQueueName
       VisibilityTimeout: 180
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DocsGyotakuWatcherDLQueue.Arn
+        maxReceiveCount: 5
   DocsGyotakuWatcherSQSTriger:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
